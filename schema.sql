@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS keys (
+    id SERIAL PRIMARY KEY,
+    key VARCHAR(20) UNIQUE NOT NULL,
+    label VARCHAR(255),
+    createdat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expiresat TIMESTAMP,
+    usedip VARCHAR(45),
+    usedat TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_key ON keys(key);

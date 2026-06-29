@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UABEANext Admin - Auto Updater</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-logo">
+                <span class="logo-icon">🔄</span>
+                <div class="logo-text">
+                    <h1>UABEANext</h1>
+                    <p>License Administration Console</p>
+                </div>
+            </div>
+            <nav class="header-nav">
+                <a href="/" class="nav-link" id="navKeys">🔑 License Keys</a>
+                <a href="/updater.html" class="nav-link active" id="navUpdater">🔄 Auto Updater</a>
+            </nav>
+            <div class="server-status" id="serverStatus">
+                <span class="status-indicator pinging"></span>
+                <span class="status-label">Connecting...</span>
+            </div>
+        </header>
+
+        <!-- Current Published Update Banner -->
+        <section class="update-status-bar card" id="currentUpdateBanner">
+            <div class="update-status-icon" id="updateStatusIcon">📦</div>
+            <div class="update-status-info">
+                <h3 id="currentVersionLabel">Loading current update config...</h3>
+                <p id="currentUrlLabel" class="update-url-preview"></p>
+            </div>
+            <div class="update-status-actions">
+                <button class="btn btn-danger btn-action" id="btnClearUpdate">Clear Update</button>
+            </div>
+        </section>
+
+        <!-- Main workspace -->
+        <main class="dashboard-workspace">
+
+            <!-- Publish Update Panel -->
+            <section class="generator-panel card">
+                <h2>Publish New Update</h2>
+                <form id="updaterForm" class="generator-form">
+                    <div class="form-group">
+                        <label for="updateVersion">Version String</label>
+                        <input type="text" id="updateVersion" placeholder="e.g. 1.2.0" autocomplete="off">
+                        <small class="form-hint">Must be higher than the current app version to trigger update</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="downloadUrl">Download URL</label>
+                        <input type="url" id="downloadUrl" placeholder="https://example.com/UABEANext-v1.2.0.zip" autocomplete="off">
+                        <small class="form-hint">Direct link to a .zip or .exe file that will be downloaded and run</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="releaseNotes">Release Notes (Optional)</label>
+                        <textarea id="releaseNotes" placeholder="What changed in this version..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="btnPublish">
+                        <span>Publish Update</span>
+                    </button>
+                </form>
+            </section>
+
+            <!-- How it Works Panel -->
+            <section class="table-panel card">
+                <h2>How Auto Updater Works</h2>
+                <div class="how-it-works">
+
+                    <div class="flow-step">
+                        <div class="step-num">1</div>
+                        <div class="step-body">
+                            <h3>You Publish an Update</h3>
+                            <p>Enter the new version number and a direct download link to a <code>.zip</code> or <code>.exe</code> file. Click <strong>Publish Update</strong>.</p>
+                        </div>
+                    </div>
+
+                    <div class="flow-connector">↓</div>
+
+                    <div class="flow-step">
+                        <div class="step-num">2</div>
+                        <div class="step-body">
+                            <h3>App Checks on Startup</h3>
+                            <p>When UABEANext launches, it contacts <code>heyy-rose.vercel.app/api/update</code> and compares the published version with its current version.</p>
+                        </div>
+                    </div>
+
+                    <div class="flow-connector">↓</div>
+
+                    <div class="flow-step">
+                        <div class="step-num">3</div>
+                        <div class="step-body">
+                            <h3>Update Dialog Shown</h3>
+                            <p>If a newer version is found, the app shows a dialog with your release notes and a <strong>Download &amp; Install</strong> button.</p>
+                        </div>
+                    </div>
+
+                    <div class="flow-connector">↓</div>
+
+                    <div class="flow-step">
+                        <div class="step-num">4</div>
+                        <div class="step-body">
+                            <h3>Install &amp; Restart</h3>
+                            <p>The app downloads the file, runs it (or extracts the zip into its folder), deletes the old files, then relaunches automatically.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="updater.js"></script>
+</body>
+</html>

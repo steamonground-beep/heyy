@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UABEANext Admin - License Keys</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background: #0a0a0a;
+            color: #e0e0e0;
+        }
+        
+        /* Snow Background */
+        #snow-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            opacity: 0.85;
+        }
+
+        .dashboard-container {
+            background: rgba(10, 10, 10, 0.95);
+        }
+
+        .card {
+            background: rgba(20, 20, 20, 0.95);
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <!-- Snow Canvas -->
+    <canvas id="snow-canvas"></canvas>
+
+    <!-- Login Modal -->
+    <div class="login-modal" id="loginModal">
+        <div class="login-card">
+            <div class="login-header">
+                <h1>🔐 Admin Access</h1>
+                <p>Enter admin key to continue</p>
+            </div>
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <input type="password" id="adminKeyInput" placeholder="Enter admin key" autocomplete="off">
+                </div>
+                <button type="submit" class="btn btn-primary">Access Dashboard</button>
+            </form>
+            <p class="login-error" id="loginError"></p>
+        </div>
+    </div>
+
+    <div class="dashboard-container" id="dashboardContainer" style="display: none;">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-logo">
+                <div class="logo-text">
+                    <h1>UABEANext</h1>
+                    <p>License Administration Console</p>
+                </div>
+            </div>
+            <nav class="header-nav">
+                <a href="/" class="nav-link active" id="navKeys">🔑 License Keys</a>
+                <a href="/updater.html" class="nav-link" id="navUpdater">🔄 Auto Updater</a>
+            </nav>
+            <div class="server-status" id="serverStatus">
+                <span class="status-indicator pinging"></span>
+                <span class="status-label">Connecting to service...</span>
+            </div>
+        </header>
+
+        <!-- Stats Overview -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon keys-icon">Keys</div>
+                <div class="stat-data">
+                    <h3 id="statTotalKeys">0</h3>
+                    <p>Total Keys</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon active-icon">Active</div>
+                <div class="stat-data">
+                    <h3 id="statActiveKeys">0</h3>
+                    <p>Active Licenses</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon locked-icon">Locked</div>
+                <div class="stat-data">
+                    <h3 id="statLockedKeys">0</h3>
+                    <p>IP Locked</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Workspace -->
+        <main class="dashboard-workspace">
+            <!-- Key Generator Panel -->
+            <section class="generator-panel card">
+                <h2>Create License Key</h2>
+                <form id="generatorForm" class="generator-form">
+                    <div class="form-group">
+                        <label for="keyLabel">Customer / Label</label>
+                        <input type="text" id="keyLabel" placeholder="e.g. John Doe, Production Team" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="expiryDays">Expiry (Days)</label>
+                        <input type="number" id="expiryDays" placeholder="Never (leave empty)" min="1">
+                        <small class="form-hint">Leave blank or 0 for a lifetime key</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="btnGenerate">
+                        <span>Generate License Key</span>
+                    </button>
+                </form>
+               
+                <div class="generated-result" id="generatedResult" style="display: none;">
+                    <h3>New Key Created!</h3>
+                    <div class="key-display-box">
+                        <span id="newKeyString" class="key-string">XXXX-XXXX-XXXX-XXXX</span>
+                        <button class="btn btn-icon" id="btnCopyResult" title="Copy to clipboard">Copy</button>
+                    </div>
+                    <p class="result-details" id="newKeyDetails"></p>
+                </div>
+            </section>
+
+            <!-- Keys Table Panel -->
+            <section class="table-panel card">
+                <div class="table-header">
+                    <h2>Active License Keys</h2>
+                    <div class="search-box">
+                        <span class="search-icon">Search</span>
+                        <input type="text" id="searchKeys" placeholder="Search by key or label...">
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="keys-table" id="keysTable">
+                        <thead>
+                            <tr>
+                                <th>License Key</th>
+                                <th>Label / User</th>
+                                <th>Status</th>
+                                <th>IP Status</th>
+                                <th>Expires At</th>
+                                <th class="actions-column">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="keysTableBody">
+                            <tr>
+                                <td colspan="6" class="table-loading">Loading keys from database...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toastContainer"></div>
+    <script src="admin.js"></script>
+
+    <!-- Snow Particles Script -->
+    <script>
+        const canvas = document.getElementById('snow-canvas');
+        const ctx = canvas.getContext('2d');
+
+        let particles = [];
+        const particleCount = 150;
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height - canvas.height;
+                this.size = Math.random() * 3.5 + 1;
+                this.speed = Math.random() * 1.8 + 0.6;
+                this.opacity = Math.random() * 0.75 + 0.35;
+                this.xSpeed = Math.random() * 0.6 - 0.3;
+            }
+            update() {
+                this.y += this.speed;
+                this.x += this.xSpeed;
+                if (this.y > canvas.height) this.reset();
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.fillStyle = `rgba(240, 240, 255, ${this.opacity})`;
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+            }
+            requestAnimationFrame(animate);
+        }
+
+        function initSnow() {
+            resizeCanvas();
+            particles = [];
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+            animate();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('load', initSnow);
+    </script>
+</body>
+</html>
