@@ -86,7 +86,12 @@ app.post('/api/validate', (req, res) => {
     if (keyData.usedIp) {
         // Key is locked to an IP address
         if (keyData.usedIp !== ip) {
-            return res.json({ valid: false, message: 'License key is locked to a different IP' });
+            // Allow re-activation if hwid changes (e.g., after rebuild)
+            // Reset the lock to the new hwid
+            keyData.usedIp = ip;
+            keyData.usedAt = new Date().toISOString();
+            writeKeys(keys);
+            return res.json({ valid: true, message: 'License re-activated with new device ID', lockedIp: ip });
         }
         return res.json({ valid: true, message: 'License validated', lockedIp: keyData.usedIp });
     }
