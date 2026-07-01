@@ -5,7 +5,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const KEYS_FILE = path.join(__dirname, 'keys.json');
-const ADMIN_KEY = process.env.ADMIN_KEY || '2549'; // Change this in production
+const ADMIN_KEY = process.env.ADMIN_KEY || '9764'; // Change this in production
 
 // Middleware
 app.use(express.json());
