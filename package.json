@@ -4,7 +4,7 @@
   "description": "UABEANext Key System backed by GitHub Contents API",
   "private": true,
   "scripts": {
-    "start": "node server.js"
+    "start": "node dev-server.js"
   },
   "engines": {
     "node": ">=18.0.0"
