@@ -2,10 +2,9 @@
   "name": "key-system",
   "version": "1.0.0",
   "description": "UABEANext Key System backed by GitHub Contents API",
-  "main": "server.js",
+  "private": true,
   "scripts": {
-    "start": "node server.js",
-    "add-key": "node add-key.js"
+    "start": "node server.js"
   },
   "engines": {
     "node": ">=18.0.0"
