@@ -1,0 +1,18 @@
+[
+  {
+    "key": "15W4-RPHX-4LDC-OJLV",
+    "label": "John Doe",
+    "createdAt": "2026-06-27T12:46:55.068Z",
+    "expiresAt": "2026-07-04T12:46:55.066Z",
+    "usedIp": "67.198.7.160",
+    "usedAt": "2026-06-27T12:50:56.375Z"
+  },
+  {
+    "key": "IIVI-WPT9-R9DC-S7RH",
+    "label": null,
+    "createdAt": "2026-06-27T13:24:29.741Z",
+    "expiresAt": null,
+    "usedIp": null,
+    "usedAt": null
+  }
+]
