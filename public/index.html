@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UABEANext — Admin Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon">UA</div>
+    </div>
+    <h1 class="login-title">UABEANext</h1>
+    <p class="login-sub">Admin Dashboard</p>
+    <form id="loginForm">
+      <div class="field">
+        <label for="loginUser">Username</label>
+        <input type="text" id="loginUser" value="admin" autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="loginPass">Password</label>
+        <input type="password" id="loginPass" placeholder="Enter password" autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+      <p id="loginError" class="login-error"></p>
+    </form>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="app-layout" style="display:none">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">UA</div>
+      <span>UABEANext</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-page="dashboard" href="#">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </a>
+      <a class="nav-item" data-page="licenses" href="#">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+        Licenses
+      </a>
+      <a class="nav-item" data-page="users" href="#">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Users
+      </a>
+      <a class="nav-item" data-page="subscriptions" href="#">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Subscriptions
+      </a>
+      <a class="nav-item" data-page="sessions" href="#">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Sessions
+      </a>
+      <a class="nav-item" data-page="webhooks" href="#">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        Webhooks
+      </a>
+      <a class="nav-item" data-page="files" href="#">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Files
+      </a>
+      <a class="nav-item" data-page="blacklist" href="#">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        Blacklist
+      </a>
+      <a class="nav-item" data-page="settings" href="#">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </a>
+    </nav>
+    <button id="logoutBtn" class="sidebar-logout">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Sign Out
+    </button>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <h2>Dashboard</h2>
+        <span class="pill online"><span class="pill-dot"></span> Online</span>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-num" id="stat-total-licenses">0</div><div class="stat-lbl">Total Licenses</div></div>
+        <div class="stat-card green"><div class="stat-num" id="stat-used">0</div><div class="stat-lbl">Used</div></div>
+        <div class="stat-card yellow"><div class="stat-num" id="stat-unused">0</div><div class="stat-lbl">Unused</div></div>
+        <div class="stat-card red"><div class="stat-num" id="stat-banned">0</div><div class="stat-lbl">Banned</div></div>
+        <div class="stat-card purple"><div class="stat-num" id="stat-users">0</div><div class="stat-lbl">Users</div></div>
+        <div class="stat-card blue"><div class="stat-num" id="stat-active-users">0</div><div class="stat-lbl">Active Users</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-sessions">0</div><div class="stat-lbl">Sessions</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-files">0</div><div class="stat-lbl">Files</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-webhooks">0</div><div class="stat-lbl">Webhooks</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Recent Activity</h3></div>
+        <div id="activityFeed" class="activity-list"></div>
+      </div>
+    </div>
+
+    <!-- LICENSES -->
+    <div id="page-licenses" class="page">
+      <div class="page-header">
+        <h2>Licenses</h2>
+        <button class="btn btn-primary" onclick="openModal('createLicenseModal')">+ Create License</button>
+      </div>
+      <div class="table-controls">
+        <input type="text" id="licenseSearch" class="search-box" placeholder="Search licenses..." oninput="filterLicenses()">
+        <button class="btn btn-ghost" onclick="loadLicenses()">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Key</th><th>Status</th><th>Subscription</th><th>Uses</th><th>Notes</th><th>Expires</th><th>Actions</th></tr></thead>
+          <tbody id="licensesBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- USERS -->
+    <div id="page-users" class="page">
+      <div class="page-header"><h2>Users</h2></div>
+      <div class="table-controls">
+        <input type="text" id="userSearch" class="search-box" placeholder="Search users..." oninput="filterUsers()">
+        <button class="btn btn-ghost" onclick="loadUsers()">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Username</th><th>License</th><th>HWID</th><th>IP</th><th>Subscription</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SUBSCRIPTIONS -->
+    <div id="page-subscriptions" class="page">
+      <div class="page-header">
+        <h2>Subscriptions</h2>
+        <button class="btn btn-primary" onclick="openModal('createSubModal')">+ Create</button>
+      </div>
+      <div id="subscriptionsGrid" class="grid-2"></div>
+    </div>
+
+    <!-- SESSIONS -->
+    <div id="page-sessions" class="page">
+      <div class="page-header">
+        <h2>Sessions</h2>
+        <button class="btn btn-danger" onclick="deleteAllSessions()">Revoke All</button>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>User</th><th>IP</th><th>HWID</th><th>Created</th><th>Expires</th><th>Actions</th></tr></thead>
+          <tbody id="sessionsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- WEBHOOKS -->
+    <div id="page-webhooks" class="page">
+      <div class="page-header">
+        <h2>Webhooks</h2>
+        <button class="btn btn-primary" onclick="openModal('createWebhookModal')">+ Add Webhook</button>
+      </div>
+      <div id="webhooksGrid" class="grid-2"></div>
+    </div>
+
+    <!-- FILES -->
+    <div id="page-files" class="page">
+      <div class="page-header">
+        <h2>Files</h2>
+        <button class="btn btn-primary" onclick="openModal('uploadFileModal')">+ Upload</button>
+      </div>
+      <div id="filesGrid" class="grid-2"></div>
+    </div>
+
+    <!-- BLACKLIST -->
+    <div id="page-blacklist" class="page">
+      <div class="page-header">
+        <h2>Blacklist</h2>
+        <button class="btn btn-primary" onclick="openModal('addBlacklistModal')">+ Add</button>
+      </div>
+      <div class="table-controls">
+        <input type="text" id="blacklistSearch" class="search-box" placeholder="Search blacklist..." oninput="filterBlacklist()">
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Type</th><th>Value</th><th>Reason</th><th>Added</th><th>Actions</th></tr></thead>
+          <tbody id="blacklistBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="page-settings" class="page">
+      <div class="page-header"><h2>Settings</h2></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><h3>Application Settings</h3></div>
+          <div class="settings-list">
+            <label class="toggle-row"><span>App Status</span><input type="checkbox" id="setAppStatus" class="toggle-input"><span class="toggle-slider"></span></label>
+            <label class="toggle-row"><span>HWID Lock</span><input type="checkbox" id="setHwidLock" class="toggle-input"><span class="toggle-slider"></span></label>
+            <label class="toggle-row"><span>Force HWID</span><input type="checkbox" id="setForceHwid" class="toggle-input"><span class="toggle-slider"></span></label>
+            <label class="toggle-row"><span>VPN Block</span><input type="checkbox" id="setVpnBlock" class="toggle-input"><span class="toggle-slider"></span></label>
+            <label class="toggle-row"><span>Hash Check</span><input type="checkbox" id="setHashCheck" class="toggle-input"><span class="toggle-slider"></span></label>
+            <label class="toggle-row"><span>Token Validation</span><input type="checkbox" id="setTokenValidation" class="toggle-input"><span class="toggle-slider"></span></label>
+            <label class="toggle-row"><span>Allow Register</span><input type="checkbox" id="setAllowRegister" class="toggle-input"><span class="toggle-slider"></span></label>
+            <label class="toggle-row"><span>Show IP Addresses</span><input type="checkbox" id="setShowIPs" class="toggle-input"><span class="toggle-slider"></span></label>
+          </div>
+          <button class="btn btn-primary" onclick="saveMainSettings()" style="margin-top:16px">Save Settings</button>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Application Info</h3></div>
+          <div class="settings-list">
+            <div class="field"><label>App Version</label><input type="text" id="setAppVersion" placeholder="1.0.0"></div>
+            <div class="field"><label>Update URL</label><input type="text" id="setUpdateUrl" placeholder="https://example.com/update"></div>
+            <div class="field"><label>Min Username Length</label><input type="number" id="setMinUsername" min="1" max="32" value="3"></div>
+            <div class="field"><label>Session Duration (hours)</label><input type="number" id="setSessionDuration" min="1" value="24"></div>
+          </div>
+          <button class="btn btn-primary" onclick="saveMainSettings()" style="margin-top:16px">Save Info</button>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Discord Bot</h3></div>
+          <div class="settings-list">
+            <div class="field"><label>Bot Token</label><input type="password" id="cfgDiscordToken" placeholder="Bot token"></div>
+            <div class="field"><label>Owner ID</label><input type="text" id="cfgOwnerId" placeholder="Discord user ID"></div>
+            <div class="field"><label>Bot API Key</label><input type="password" id="cfgBotApiKey" placeholder="API key"></div>
+            <label class="toggle-row"><span>Bot Enabled</span><input type="checkbox" id="cfgBotEnabled" class="toggle-input"><span class="toggle-slider"></span></label>
+          </div>
+          <button class="btn btn-primary" onclick="saveConfig()" style="margin-top:16px">Save Bot Config</button>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3>Customer Panel</h3></div>
+          <div class="settings-list">
+            <label class="toggle-row"><span>Panel Enabled</span><input type="checkbox" id="setCustomerPanel" class="toggle-input"><span class="toggle-slider"></span></label>
+            <div class="field"><label>Panel Link</label><input type="text" id="panelLink" value="" readonly></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODALS -->
+
+<!-- Create License -->
+<div id="createLicenseModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header"><h3>Create License</h3><button class="modal-close" onclick="closeModalById('createLicenseModal')">&times;</button></div>
+    <div class="modal-body">
+      <div class="row-2">
+        <div class="field"><label>Count</label><input type="number" id="licCount" min="1" max="500" value="1"></div>
+        <div class="field"><label>Mask</label><input type="text" id="licMask" placeholder="XXXX-XXXX-XXXX-XXXX"></div>
+      </div>
+      <div class="field"><label>Subscription</label><select id="licSubscription"><option value="">None</option></select></div>
+      <div class="row-2">
+        <div class="field"><label>Expiry</label><input type="number" id="licExpiryValue" min="0" value="30"></div>
+        <div class="field"><label>Unit</label><select id="licExpiryUnit"><option value="minutes">Minutes</option><option value="hours">Hours</option><option value="days" selected>Days</option><option value="months">Months</option><option value="years">Years</option></select></div>
+      </div>
+      <div class="field"><label>Max Uses</label><input type="number" id="licMaxUses" min="0" value="0" placeholder="0 = unlimited"></div>
+      <div class="field"><label>Notes</label><input type="text" id="licNotes" placeholder="Optional notes"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModalById('createLicenseModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createLicense()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Subscription -->
+<div id="createSubModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header"><h3>Create Subscription</h3><button class="modal-close" onclick="closeModalById('createSubModal')">&times;</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Name</label><input type="text" id="subName" placeholder="e.g. Premium"></div>
+      <div class="row-2">
+        <div class="field"><label>Duration</label><input type="number" id="subDuration" min="1" value="30"></div>
+        <div class="field"><label>Unit</label><select id="subUnit"><option value="minutes">Minutes</option><option value="hours">Hours</option><option value="days" selected>Days</option><option value="months">Months</option><option value="years">Years</option></select></div>
+      </div>
+      <div class="field"><label>Max Users</label><input type="number" id="subMaxUsers" min="0" value="0" placeholder="0 = unlimited"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModalById('createSubModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createSubscription()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Webhook -->
+<div id="createWebhookModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header"><h3>Add Webhook</h3><button class="modal-close" onclick="closeModalById('createWebhookModal')">&times;</button></div>
+    <div class="modal-body">
+      <div class="field"><label>URL</label><input type="url" id="whUrl" placeholder="https://discord.com/api/webhooks/..."></div>
+      <div class="field"><label>Events</label><input type="text" id="whEvents" placeholder="login, register, ban, subscribe"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModalById('createWebhookModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createWebhook()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Upload File -->
+<div id="uploadFileModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header"><h3>Upload File</h3><button class="modal-close" onclick="closeModalById('uploadFileModal')">&times;</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Name</label><input type="text" id="fileName" placeholder="File name"></div>
+      <div class="field"><label>Download URL</label><input type="url" id="fileUrl" placeholder="https://example.com/file.exe"></div>
+      <div class="field"><label>Version</label><input type="text" id="fileVersion" placeholder="1.0.0"></div>
+      <div class="field"><label>Notes</label><input type="text" id="fileNotes" placeholder="Optional notes"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModalById('uploadFileModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createFile()">Upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Blacklist -->
+<div id="addBlacklistModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header"><h3>Add Blacklist Entry</h3><button class="modal-close" onclick="closeModalById('addBlacklistModal')">&times;</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Type</label><select id="blType"><option value="ip">IP Address</option><option value="hwid">Hardware ID</option><option value="user">Username</option></select></div>
+      <div class="field"><label>Value</label><input type="text" id="blValue" placeholder="IP, HWID, or username"></div>
+      <div class="field"><label>Reason</label><input type="text" id="blReason" placeholder="Why is this blacklisted?"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModalById('addBlacklistModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createBlacklist()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit File -->
+<div id="editFileModal" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-header"><h3>Edit File</h3><button class="modal-close" onclick="closeModalById('editFileModal')">&times;</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="fileEditId">
+      <div class="field"><label>Name</label><input type="text" id="fileEditName"></div>
+      <div class="field"><label>Download URL</label><input type="url" id="fileEditUrl"></div>
+      <div class="field"><label>Version</label><input type="text" id="fileEditVersion"></div>
+      <div class="field"><label>Notes</label><input type="text" id="fileEditNotes"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModalById('editFileModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditFile()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toastContainer" class="toast-wrap"></div>
+
+<script src="admin.js"></script>
+</body>
+</html>
