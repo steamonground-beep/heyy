@@ -479,6 +479,7 @@ function logActivity(data, action, detail) {
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 module.exports = async function handler(req, res) {
+  try {
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
@@ -486,12 +487,13 @@ module.exports = async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     let body = req.body;
-    if (typeof body === 'string') try { body = JSON.parse(body); } catch { body = {}; }
+    if (typeof body === 'string') try { body = JSON.parse(body); } catch(e) { body = {}; }
     body = body || {};
 
     let path = '';
-    if (req.query?.path) path = '/' + req.query.path;
-    else path = (req.url || '').replace('/api', '').split('?')[0];
+    if (req.query && req.query.path) path = '/' + req.query.path;
+    else path = (req.url || '/api/').replace('/api', '').split('?')[0];
+    if (!path || path === '/') path = '/';
     const method = req.method;
 
     // â”€â”€ Public: validate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -523,7 +525,8 @@ module.exports = async function handler(req, res) {
         }
 
         // â”€â”€ Step 4: VPN / proxy detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        const settings = (await readData()).settings || defaultSettings();
+        const data = await readData();
+        const settings = data.settings || defaultSettings();
         if (settings.vpnBlock) {
             const vpnCheck = detectVpnProxy(ip);
             if (vpnCheck.isVpn) {
@@ -543,7 +546,6 @@ module.exports = async function handler(req, res) {
         }
 
         // â”€â”€ Step 6: Key lookup & validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        const data = await readData();
         const k = data.licenses.find(l => l.key === key);
         if (!k) { recordKeyAttempt(key, false); return res.json({ valid: false, message: 'Invalid license key' }); }
         if (k.banned) { recordKeyAttempt(key, false); return res.json({ valid: false, message: 'License key is banned' }); }
@@ -1081,4 +1083,8 @@ module.exports = async function handler(req, res) {
     }
 
     res.status(404).json({ error: 'Not found' });
+  } catch (err) {
+    console.error('Handler error:', err);
+    try { res.status(500).json({ error: 'Internal server error', detail: String(err.message || err) }); } catch(e) {}
+  }
 }
