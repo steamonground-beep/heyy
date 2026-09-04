@@ -28,6 +28,12 @@ const LOG_LIMIT = 2000;
 const FILE_READ_MAX = 1024 * 1024; // 1MB cap for reads
 const WORKER_HOST = process.env.WORKER_HOST || 'default';
 const WORKER_PUBLIC_HOST = process.env.WORKER_PUBLIC_HOST || '127.0.0.1';
+// When set (e.g. rayvo.me), each instance is publicly reachable at
+// https://<instanceId>.<WORKER_PUBLIC_DOMAIN> — a wildcard reverse proxy
+// (startWildcardProxy) routes those hostnames to the instance's port.
+const WORKER_PUBLIC_DOMAIN = process.env.WORKER_PUBLIC_DOMAIN || '';
+// Port the wildcard reverse proxy listens on (games hit this hostname).
+const WORKER_PROXY_PORT = Number(process.env.WORKER_PROXY_PORT || 4771);
 
 if (!CONTROL_URL || !API_SECRET || !BACKEND_DIR) {
   console.error('Missing CONTROL_URL, CONTROL_API_SECRET, or BACKEND_DIR');
@@ -95,18 +101,23 @@ function setupInstanceDir(id) {
   });
 
   // Symlink the template node_modules so each instance doesn't copy hundreds of MB.
+  // On Windows prefer a junction (no admin rights needed).
   const nmSrc = path.join(BACKEND_DIR, 'node_modules');
   const nmDst = path.join(root, 'node_modules');
   if (fs.existsSync(nmSrc) && !fs.existsSync(nmDst)) {
-    try {
-      fs.symlinkSync(nmSrc, nmDst, 'dir');
-    } catch {
+    let linked = false;
+    const types = process.platform === 'win32' ? ['junction', 'dir'] : ['dir', 'junction'];
+    for (const t of types) {
       try {
-        fs.symlinkSync(nmSrc, nmDst, 'junction');
+        fs.symlinkSync(nmSrc, nmDst, t);
+        linked = true;
+        console.log(`[${id}] linked node_modules (${t})`);
+        break;
       } catch (e) {
-        console.error('node_modules symlink failed for', id, e.message);
+        console.log(`[${id}] node_modules ${t} link failed: ${e.message}`);
       }
     }
+    if (!linked) console.error(`[${id}] node_modules link FAILED — instance may not boot`);
   }
 
   writeInstanceEnv(id, {});
@@ -205,20 +216,32 @@ async function startProcess(work) {
     return;
   }
   const port = nextPort(START_PORT);
-
+  // Get the owner info for the instance to build the path-based URL
+  const { rows: ownerRows } = await pool.query(
+    'SELECT u.discord_username FROM instances i JOIN users u ON i.owner_id = u.id WHERE i.id = $1',
+    [work.id]
+  );
+  const username = ownerRows.length ? ownerRows[0].discord_username : 'unknown';
+  
+  // Public URL announced for this instance: path-based URL under the public host.
+  const publicBase = process.env.WORKER_PUBLIC_URL || process.env.WORKER_DAEMON_URL || 'https://rayvo.me';
+  const publicUrl = `${publicBase.replace(/\/+$/, '')}/play/${username}/${work.id}`;
+  const workEnv = {
+    ...process.env,
+    PORT: String(port),
+    HOST: '0.0.0.0',
+    PUBLIC_URL: publicUrl,
+  };
   const child = spawn('node', ['server.js'], {
     cwd: root,
-    env: {
-      ...process.env,
-      PORT: String(port),
-      HOST: '0.0.0.0',
-    },
+    env: workEnv,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
   const entry = {
     child,
     port,
+    publicUrl,
     meta: work,
     free: work.tier === 'free',
     tickCount: 0,
@@ -231,19 +254,21 @@ async function startProcess(work) {
   pushLog(work.id, `[worker] starting instance ${work.id} on port ${port}`);
 
   const reportStarted = async () => {
-    const publicUrl = `http://${WORKER_PUBLIC_HOST}:${port}`;
     await pool.query(
       `UPDATE instances SET status = 'running', port = $2, worker_host = $3,
          public_url = $4, started_at = COALESCE(started_at, now()), last_seen_at = now()
-       WHERE id = $1`,
+        WHERE id = $1`,
       [work.id, port, WORKER_HOST, publicUrl]
     );
+    console.log(`[${work.id}] public URL set to ${publicUrl}`);
+    console.log(`[${work.id}] API endpoint: ${publicUrl}/api`);
+    console.log(`[${work.id}] WebSocket endpoint: ${publicUrl.replace(/^https:/, 'wss:')}/ws/prod-GT-ws-stage/`);
   };
 
   await new Promise((resolve) => setTimeout(resolve, 1500));
   if (running.has(work.id) && child.exitCode === null) {
     await reportStarted();
-    pushLog(work.id, `[worker] running at http://${WORKER_PUBLIC_HOST}:${port}`);
+    pushLog(work.id, `[worker] running at ${publicUrl}`);
     console.log(`[${work.id}] running on port ${port}`);
   } else {
     if (running.get(work.id)) running.delete(work.id);
@@ -334,7 +359,7 @@ async function heartbeat() {
       id,
       status: entry.child.exitCode === null ? 'running' : 'stopped',
       port: entry.port,
-      public_url: `http://${WORKER_PUBLIC_HOST}:${entry.port}`,
+      public_url: entry.publicUrl || `http://${WORKER_PUBLIC_HOST}:${entry.port}`,
     });
   }
   try {
@@ -437,6 +462,136 @@ function readFileAt(root, rel) {
   return { content: fs.readFileSync(p, 'utf8'), size: st.size };
 }
 
+async function getPublicInstance(instanceId) {
+  const { rows } = await pool.query(
+    `SELECT i.id, i.port, i.status, u.discord_username AS username
+     FROM instances i
+     JOIN users u ON u.id = i.owner_id
+     WHERE i.id = $1`,
+    [instanceId]
+  );
+  return rows[0] || null;
+}
+
+function addCors(headers) {
+  headers.set('Access-Control-Allow-Origin', '*');
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return headers;
+}
+
+function targetPathFromPublicRoute(urlPathname, username, instanceId) {
+  const prefixes = [
+    `/play/${username}/${instanceId}`,
+    `/api/${username}/${instanceId}`,
+    `/ws/${username}/${instanceId}`,
+  ];
+  for (const prefix of prefixes) {
+    if (urlPathname === prefix) return '/';
+    if (urlPathname.startsWith(prefix + '/')) return urlPathname.slice(prefix.length);
+  }
+  return null;
+}
+
+function proxyHttpToPort(req, res, targetPort, targetPath, originalUrl) {
+  const proxyReq = http.request(
+    {
+      hostname: '127.0.0.1',
+      port: targetPort,
+      method: req.method,
+      path: `${targetPath}${originalUrl.search || ''}`,
+      headers: {
+        ...req.headers,
+        host: `127.0.0.1:${targetPort}`,
+      },
+    },
+    (proxyRes) => {
+      const headers = addCors(new Headers());
+      for (const [key, value] of Object.entries(proxyRes.headers)) {
+        if (value == null) continue;
+        if (key.toLowerCase() === 'host') continue;
+        if (Array.isArray(value)) headers.set(key, value.join(', '));
+        else headers.set(key, String(value));
+      }
+      res.writeHead(proxyRes.statusCode || 502, Object.fromEntries(headers.entries()));
+      proxyRes.pipe(res);
+    }
+  );
+  proxyReq.on('error', (e) => {
+    try { res.writeHead(502, { 'Content-Type': 'application/json' }); } catch {}
+    try { res.end(JSON.stringify({ error: e.message || 'proxy failed' })); } catch {}
+  });
+  req.pipe(proxyReq);
+}
+
+function proxyUpgradeToPort(req, socket, head, targetPort, targetPath, originalUrl) {
+  const proxyReq = http.request({
+    hostname: '127.0.0.1',
+    port: targetPort,
+    method: 'GET',
+    path: `${targetPath}${originalUrl.search || ''}`,
+    headers: {
+      ...req.headers,
+      host: `127.0.0.1:${targetPort}`,
+      connection: 'Upgrade',
+      upgrade: req.headers.upgrade || 'websocket',
+    },
+  });
+
+  proxyReq.on('upgrade', (proxyRes, proxySocket, proxyHead) => {
+    let response = `HTTP/1.1 ${proxyRes.statusCode || 101} ${proxyRes.statusMessage || 'Switching Protocols'}\r\n`;
+    for (const [key, value] of Object.entries(proxyRes.headers)) {
+      if (value == null) continue;
+      response += `${key}: ${Array.isArray(value) ? value.join(', ') : value}\r\n`;
+    }
+    response += '\r\n';
+    socket.write(response);
+    if (proxyHead && proxyHead.length) socket.write(proxyHead);
+    if (head && head.length) proxySocket.write(head);
+    proxySocket.pipe(socket).pipe(proxySocket);
+  });
+
+  proxyReq.on('error', () => {
+    try { socket.destroy(); } catch {}
+  });
+
+  proxyReq.end();
+}
+
+async function handlePublicRequest(req, res, url, username, instanceId) {
+  const targetPath = targetPathFromPublicRoute(url.pathname, username, instanceId);
+  if (!targetPath) return false;
+
+  const instance = await getPublicInstance(instanceId);
+  if (!instance) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'instance not found' }));
+    return true;
+  }
+  if (instance.status !== 'running') {
+    res.writeHead(503, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'instance not running' }));
+    return true;
+  }
+
+  proxyHttpToPort(req, res, instance.port, targetPath, url);
+  return true;
+}
+
+async function handlePublicUpgrade(req, socket, head, url, username, instanceId) {
+  const targetPath = targetPathFromPublicRoute(url.pathname, username, instanceId);
+  if (!targetPath) return false;
+
+  const instance = await getPublicInstance(instanceId);
+  if (!instance || instance.status !== 'running') {
+    socket.destroy();
+    return true;
+  }
+
+  proxyUpgradeToPort(req, socket, head, instance.port, targetPath, url);
+  return true;
+}
+
 async function handleDaemonRequest(req, res, url, instanceId) {
   if (!isAuthed(req)) {
     res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -521,14 +676,35 @@ function startDaemonServer() {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://localhost:${WORKER_API_PORT}`);
     const m = url.pathname.match(/^\/api\/instance\/([^/]+)\/(files|file|logs|restart|stop)$/);
-    if (!m) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'not found' }));
+    if (m) {
+      handleDaemonRequest(req, res, url, m[1]).catch((e) => {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      });
       return;
     }
-    handleDaemonRequest(req, res, url, m[1]).catch((e) => {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: e.message }));
+
+    const publicMatch = url.pathname.match(/^\/(?:play|api|ws)\/([^/]+)\/([^/]+)(?:\/.*)?$/);
+    if (publicMatch) {
+      handlePublicRequest(req, res, url, publicMatch[1], publicMatch[2]).catch((e) => {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      });
+      return;
+    }
+
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'not found' }));
+  });
+  server.on('upgrade', (req, socket, head) => {
+    const url = new URL(req.url, `http://localhost:${WORKER_API_PORT}`);
+    const publicMatch = url.pathname.match(/^\/(?:play|api|ws)\/([^/]+)\/([^/]+)(?:\/.*)?$/);
+    if (!publicMatch) {
+      socket.destroy();
+      return;
+    }
+    handlePublicUpgrade(req, socket, head, url, publicMatch[1], publicMatch[2]).catch(() => {
+      try { socket.destroy(); } catch {}
     });
   });
   server.listen(WORKER_API_PORT, '0.0.0.0', () => {

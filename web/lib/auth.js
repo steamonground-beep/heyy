@@ -36,7 +36,12 @@ async function getCurrentUser(req, db) {
   const session = getSession(req);
   if (!session || !session.userId) return null;
   const { rows } = await db.query('SELECT * FROM users WHERE id = $1', [session.userId]);
-  return rows.length ? rows[0] : null;
+  const user = rows.length ? rows[0] : null;
+  // Add username property for compatibility with instance URL generation
+  if (user) {
+    user.username = user.discord_username || 'unknown';
+  }
+  return user;
 }
 
 module.exports = { getSession, getCurrentUser };

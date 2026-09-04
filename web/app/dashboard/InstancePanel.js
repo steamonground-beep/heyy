@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 const TAB_CONTROL = { console: 'Console', settings: 'Settings', files: 'Files' };
@@ -319,7 +320,6 @@ function SettingsTab({ inst, onError, onChanged }) {
 function FilesTab({ inst, onError }) {
   const [path, setPath] = useState('');
   const [entries, setEntries] = useState([]);
-  const [file, setFile] = useState(null); // { path, content }
   const [busy, setBusy] = useState(false);
 
   const loadDir = useCallback(
@@ -332,7 +332,6 @@ function FilesTab({ inst, onError }) {
         const data = await res.json();
         setPath(p || '/');
         setEntries(data.entries || []);
-        setFile(null);
       } catch (e) {
         onError(e.message);
       } finally {
@@ -345,40 +344,6 @@ function FilesTab({ inst, onError }) {
   useEffect(() => {
     loadDir('');
   }, [loadDir]);
-
-  async function openFile(p) {
-    setBusy(true);
-    onError('');
-    try {
-      const res = await fetch(`/api/instances/${inst.id}/files?path=${encodeURIComponent(p)}&view=1`);
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'load failed');
-      const data = await res.json();
-      setFile({ path: p, content: data.content ?? '' });
-    } catch (e) {
-      onError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function saveFile() {
-    if (!file) return;
-    setBusy(true);
-    onError('');
-    try {
-      const res = await fetch(`/api/instances/${inst.id}/files`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: file.path, content: file.content }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'save failed');
-      await loadDir(path);
-    } catch (e) {
-      onError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   const dirs = entries.filter((e) => e.type === 'dir');
   const files = entries.filter((e) => e.type === 'file');
@@ -426,14 +391,22 @@ function FilesTab({ inst, onError }) {
           <strong style={{ fontSize: 13 }}>Files</strong>
           <div style={{ display: 'grid', gap: 4, marginTop: 4, marginBottom: 12 }}>
             {files.map((f) => (
-              <button
-                key={f.path}
-                className="secondary mono"
-                onClick={() => openFile(f.path)}
-                style={{ textAlign: 'left', padding: '5px 10px', fontSize: 12 }}
-              >
-                📄 {f.path} <span style={{ color: 'var(--muted)' }}>({(f.size / 1024).toFixed(1)} KB)</span>
-              </button>
+              <div key={f.path} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button
+                  className="secondary mono"
+                  onClick={() => loadDir(path)}
+                  style={{ textAlign: 'left', padding: '5px 10px', fontSize: 12, flex: 1 }}
+                >
+                  📄 {f.path} <span style={{ color: 'var(--muted)' }}>({(f.size / 1024).toFixed(1)} KB)</span>
+                </button>
+                <Link
+                  href={`/dashboard/instances/${inst.id}/files?path=${encodeURIComponent(`/${f.path}`)}`}
+                  className="secondary"
+                  style={{ padding: '5px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center' }}
+                >
+                  Open editor
+                </Link>
+              </div>
             ))}
           </div>
         </>
@@ -441,38 +414,6 @@ function FilesTab({ inst, onError }) {
 
       {entries.length === 0 && !busy && (
         <p style={{ color: 'var(--muted)', fontSize: 13 }}>This folder is empty.</p>
-      )}
-
-      {file && (
-        <div style={{ marginTop: 8 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8 }}>
-            <strong className="mono" style={{ fontSize: 13 }}>
-              {file.path}
-            </strong>
-            <button className="secondary" onClick={() => setFile(null)} style={{ padding: '3px 10px', fontSize: 12 }}>
-              Close
-            </button>
-          </div>
-          <textarea
-            value={file.content}
-            onChange={(e) => setFile((f) => ({ ...f, content: e.target.value }))}
-            className="mono"
-            style={{
-              width: '100%',
-              height: 280,
-              padding: 10,
-              borderRadius: 8,
-              border: '1px solid var(--border)',
-              background: '#0b0e1a',
-              color: '#c9e3c9',
-              fontSize: 12,
-              fontFamily: 'Consolas, monospace',
-            }}
-          />
-          <button onClick={saveFile} disabled={busy} style={{ marginTop: 8, padding: '6px 16px' }}>
-            Save file
-          </button>
-        </div>
       )}
     </div>
   );

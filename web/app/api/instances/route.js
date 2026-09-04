@@ -55,10 +55,19 @@ export async function POST(req) {
     [user.id, name, JSON.stringify(body.config || {})]
   );
 
+  const instanceId = rows[0].id;
+  const baseUrl = (process.env.PUBLIC_BASE_URL || process.env.WORKER_PUBLIC_URL || 'https://rayvo.me').replace(/\/+$/, '');
+  const publicUrl = `${baseUrl}/play/${user.username}/${instanceId}`;
+  await query(
+    'UPDATE instances SET public_url = $1 WHERE id = $2',
+    [publicUrl, instanceId]
+  );
+  rows[0].public_url = publicUrl;
+
   // idempotent runtime row
   await query(
     'INSERT INTO instance_runtime (instance_id) VALUES ($1) ON CONFLICT DO NOTHING',
-    [rows[0].id]
+    [instanceId]
   );
 
   return NextResponse.json({ instance: rows[0] }, { status: 201 });
