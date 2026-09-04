@@ -59,10 +59,11 @@ async function upsertUser(discordId, username, tier) {
 
 async function makeLinkCode(userId) {
   const code = crypto.randomBytes(16).toString('hex');
-  const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+  // Expiry computed by the DB (now() + interval) so a skewed local clock
+  // can never make codes look expired before they should be.
   await pool.query(
-    'INSERT INTO link_codes (code, user_id, expires_at) VALUES ($1, $2, $3)',
-    [code, userId, expires]
+    'INSERT INTO link_codes (code, user_id, expires_at) VALUES ($1, $2, now() + interval \'15 minutes\')',
+    [code, userId]
   );
   return code;
 }

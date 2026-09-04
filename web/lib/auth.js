@@ -3,16 +3,31 @@ const { verify, SESSION_COOKIE } = require('./session');
 
 // Get the session payload out of the request cookies, if valid.
 function getSession(req) {
-  const cookieHeader = req.headers.cookie || '';
-  const cookies = Object.fromEntries(
-    cookieHeader.split(';').map((c) => {
-      const i = c.indexOf('=');
-      const k = c.slice(0, i).trim();
-      const v = c.slice(i + 1).trim();
-      return [k, decodeURIComponent(v)];
-    })
-  );
-  const token = cookies[SESSION_COOKIE];
+  let token = null;
+
+  // Next.js route handlers: req.cookies is a RequestCookies object.
+  if (req && req.cookies && typeof req.cookies.get === 'function') {
+    const c = req.cookies.get(SESSION_COOKIE);
+    if (c && c.value) token = c.value;
+  }
+
+  // Fallback: raw header parsing (plain Node req or Headers).
+  if (!token && req) {
+    const getHeader = (name) => {
+      if (req.headers && typeof req.headers.get === 'function') return req.headers.get(name);
+      return req.headers ? req.headers[name] : undefined;
+    };
+    const raw = getHeader('cookie') || '';
+    for (const part of raw.split(';')) {
+      const i = part.indexOf('=');
+      if (i === -1) continue;
+      if (part.slice(0, i).trim() === SESSION_COOKIE) {
+        token = decodeURIComponent(part.slice(i + 1).trim());
+        break;
+      }
+    }
+  }
+
   return token ? verify(token) : null;
 }
 
