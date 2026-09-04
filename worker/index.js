@@ -71,14 +71,26 @@ function setupInstanceDir(id) {
   fs.mkdirSync(root, { recursive: true });
   fs.mkdirSync(path.dirname(BACKEND_DIR), { recursive: true });
 
-  const skip = new Set(['node_modules', 'logs', '.git', 'admin-dist', 'admin-panel', 'eventlogs', '.env']);
+  const skip = new Set([
+    'node_modules',
+    'logs',
+    '.git',
+    'admin-dist',
+    'admin-panel',
+    'eventlogs',
+    '.env',
+    '.deepseek',
+    'New folder',
+  ]);
+  const skipFiles = ['frida_out.txt', 'frida_runner.py', 'monke_graph.py', 'CosmeticsExport.txt'];
   fs.cpSync(BACKEND_DIR, root, {
     recursive: true,
     dereference: false,
     filter: (src) => {
       const rel = path.relative(BACKEND_DIR, src);
       if (!rel) return true;
-      return !skip.has(rel.split(path.sep)[0]);
+      const parts = rel.split(path.sep);
+      return !skip.has(parts[0]) && !(parts.length === 1 && skipFiles.includes(parts[0]));
     },
   });
 
@@ -290,23 +302,27 @@ async function enforceFreeLimits() {
 
 async function reportTicks() {
   for (const [id, entry] of running.entries()) {
-    const { rows } = await pool.query(`SELECT status FROM instances WHERE id = $1`, [id]);
-    if (!rows.length) {
-      running.delete(id);
-      try {
-        entry.child.kill('SIGTERM');
-      } catch {}
-      continue;
-    }
-    if (rows[0].status !== 'running') continue;
     try {
-      await apiFetch('/api/worker/tick', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instanceId: id, seconds: TICK_SECONDS }),
-      });
+      const { rows } = await pool.query(`SELECT status FROM instances WHERE id = $1`, [id]);
+      if (!rows.length) {
+        running.delete(id);
+        try {
+          entry.child.kill('SIGTERM');
+        } catch {}
+        continue;
+      }
+      if (rows[0].status !== 'running') continue;
+      try {
+        await apiFetch('/api/worker/tick', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ instanceId: id, seconds: TICK_SECONDS }),
+        });
+      } catch (e) {
+        console.error(`tick failed for ${id}:`, e.message);
+      }
     } catch (e) {
-      console.error(`tick failed for ${id}:`, e.message);
+      console.error(`reportTicks ${id} failed:`, e.message);
     }
   }
 }
@@ -386,13 +402,20 @@ function safeRel(root, rel) {
 
 function dirListing(root, rel, maxDepth) {
   const base = safeRel(root, rel);
-  const skip = new Set(['node_modules', 'logs', '.git', 'admin-dist', 'admin-panel', 'eventlogs', '.next']);
+  const skip = new Set(['node_modules', 'logs', '.git', 'admin-dist', 'admin-panel', 'eventlogs', '.next', '.deepseek', 'New folder']);
+  const skipFiles = new Set(['frida_out.txt', 'frida_runner.py', 'monke_graph.py', 'CosmeticsExport.txt']);
   function walk(dir, depth) {
     let out = [];
     for (const name of fs.readdirSync(dir)) {
       if (skip.has(name)) continue;
       const full = path.join(dir, name);
-      const st = fs.statSync(full);
+      let st;
+      try {
+        st = fs.statSync(full);
+      } catch {
+        continue;
+      }
+      if (!st.isDirectory() && skipFiles.has(name)) continue;
       const relPath = path.relative(root, full).replace(/\\/g, '/');
       if (st.isDirectory()) {
         out.push({ name, path: relPath, type: 'dir' });
@@ -421,6 +444,9 @@ async function handleDaemonRequest(req, res, url, instanceId) {
     return;
   }
 
+  // Strip the /api/instance/<id> prefix so inner routes are just /files,/file,etc.
+  const route = url.pathname.replace(/^\/api\/instance\/[^/]+/, '');
+
   const root = instanceRoot(instanceId);
   if (!fs.existsSync(root)) {
     res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -434,17 +460,17 @@ async function handleDaemonRequest(req, res, url, instanceId) {
   };
 
   try {
-    if (req.method === 'GET' && url.pathname === '/api/instance/files') {
+    if (req.method === 'GET' && route === '/files') {
       const entries = dirListing(root, url.searchParams.get('path') || '/', 3);
       return json(200, { entries });
     }
 
-    if (req.method === 'GET' && url.pathname === '/api/instance/file') {
+    if (req.method === 'GET' && route === '/file') {
       const { content, size } = readFileAt(root, url.searchParams.get('path') || '');
       return json(200, { content, size });
     }
 
-    if (req.method === 'POST' && url.pathname === '/api/instance/file') {
+    if (req.method === 'POST' && route === '/file') {
       const body = await readBody(req);
       const rel = String(body.path || '');
       const p = safeRel(root, rel);
@@ -453,7 +479,7 @@ async function handleDaemonRequest(req, res, url, instanceId) {
       return json(200, { ok: true });
     }
 
-    if (req.method === 'GET' && url.pathname === '/api/instance/logs') {
+    if (req.method === 'GET' && route === '/logs') {
       const after = Number(url.searchParams.get('after') || 0);
       const buf = logBuffers.get(instanceId);
       const lines = buf ? buf.lines.filter((l) => l.n > after) : [];
@@ -461,7 +487,7 @@ async function handleDaemonRequest(req, res, url, instanceId) {
       return json(200, { lines, cursor: buf ? buf.cursor : 0, running: runningNow });
     }
 
-    if (req.method === 'POST' && url.pathname === '/api/instance/restart') {
+    if (req.method === 'POST' && route === '/restart') {
       const entry = running.get(instanceId);
       if (!entry) {
         await startProcess((await pool.query('SELECT * FROM instances WHERE id = $1', [instanceId])).rows[0]);
@@ -480,7 +506,7 @@ async function handleDaemonRequest(req, res, url, instanceId) {
       return json(200, { ok: true });
     }
 
-    if (req.method === 'POST' && url.pathname === '/api/instance/stop') {
+    if (req.method === 'POST' && route === '/stop') {
       await stopInstance(instanceId, 'stopped');
       return json(200, { ok: true });
     }
@@ -512,10 +538,22 @@ function startDaemonServer() {
 
 async function mainLoop() {
   await pollWork();
-  await processStopping();
-  await enforceFreeLimits();
+  try {
+    await processStopping();
+  } catch (e) {
+    console.error('stopping pass failed:', e.message);
+  }
+  try {
+    await enforceFreeLimits();
+  } catch (e) {
+    console.error('free-limit pass failed:', e.message);
+  }
   await reportTicks();
-  await heartbeat();
+  try {
+    await heartbeat();
+  } catch (e) {
+    console.error('heartbeat failed:', e.message);
+  }
 }
 
 async function main() {
