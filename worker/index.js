@@ -41,7 +41,7 @@ const logBuffers = new Map();
 
 const apiSecretHeader = { Authorization: `Bearer ${API_SECRET}` };
 
-async function apiFetch(pathname, opts) {
+async function apiFetch(pathname, opts = {}) {
   const res = await fetch(`${CONTROL_URL}${pathname}`, {
     ...opts,
     headers: { ...apiSecretHeader, ...(opts.headers || {}) },
