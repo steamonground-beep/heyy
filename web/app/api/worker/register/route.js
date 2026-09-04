@@ -14,9 +14,18 @@ export async function POST(req) {
 
   const body = await req.json().catch(() => ({}));
   const host = body.host || 'unknown';
+  const apiUrl = body.apiUrl || null; // public daemon URL used by the web to call back
   const instances = body.instances; // array of { id, status, port?, pid?, public_url? }
   if (!Array.isArray(instances)) {
     return NextResponse.json({ error: 'instances required' }, { status: 400 });
+  }
+
+  if (apiUrl) {
+    await query(
+      `INSERT INTO settings (key, value, updated_at) VALUES ('worker_api', $1::jsonb, now())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [JSON.stringify({ url: apiUrl })]
+    );
   }
 
   const now = new Date();

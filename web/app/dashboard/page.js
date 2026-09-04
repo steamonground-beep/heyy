@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import InstancePanel from './InstancePanel';
 
 function fmtSeconds(s) {
   s = Number(s) || 0;
@@ -19,6 +20,7 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [manageId, setManageId] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -72,6 +74,7 @@ export default function Dashboard() {
       });
       const data = await res.json();
       if (!res.ok) setError(data.error || `${action} failed`);
+      if (action === 'delete' && manageId === id) setManageId(null);
     } finally {
       setBusyId(null);
       setRefreshKey((k) => k + 1);
@@ -157,43 +160,58 @@ export default function Dashboard() {
         ) : (
           <div style={{ display: 'grid', gap: 12 }}>
             {instances.map((inst) => (
-              <div
-                key={inst.id}
-                style={{
-                  background: 'var(--panel)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 12,
-                  padding: 16,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  flexWrap: 'wrap',
-                }}
-              >
-                <div>
-                  <strong>{inst.name}</strong>
-                  <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 2 }}>
-                    Status: <b style={{ color: inst.status === 'running' ? 'var(--success)' : 'var(--warning)' }}>{inst.status}</b>
-                    {inst.public_url ? ` · ${inst.public_url}` : ''}
-                    {' · '}Runtime: {fmtSeconds(inst.run_seconds)}
+              <div key={inst.id} style={{ display: 'grid', gap: 4 }}>
+                <div
+                  style={{
+                    background: 'var(--panel)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 12,
+                    padding: 16,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div>
+                    <strong>{inst.name}</strong>
+                    <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 2 }}>
+                      Status: <b style={{ color: inst.status === 'running' ? 'var(--success)' : 'var(--warning)' }}>{inst.status}</b>
+                      {inst.public_url ? ` · ${inst.public_url}` : ''}
+                      {' · '}Runtime: {fmtSeconds(inst.run_seconds)}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      className={manageId === inst.id ? '' : 'secondary'}
+                      onClick={() => setManageId(manageId === inst.id ? null : inst.id)}
+                    >
+                      Manage
+                    </button>
+                    {(inst.status === 'stopped' || inst.status === 'error') && (
+                      <button onClick={() => act(inst.id, 'start')} disabled={busyId === inst.id}>
+                        Start
+                      </button>
+                    )}
+                    {(inst.status === 'running' || inst.status === 'starting') && (
+                      <button onClick={() => act(inst.id, 'stop')} className="secondary" disabled={busyId === inst.id}>
+                        Stop
+                      </button>
+                    )}
+                    {(inst.status === 'running' || inst.status === 'starting') && (
+                      <button onClick={() => act(inst.id, 'restart')} className="secondary" disabled={busyId === inst.id}>
+                        Restart
+                      </button>
+                    )}
+                    <button onClick={() => act(inst.id, 'delete')} className="danger" disabled={busyId === inst.id}>
+                      Delete
+                    </button>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {(inst.status === 'stopped' || inst.status === 'error') && (
-                    <button onClick={() => act(inst.id, 'start')} disabled={busyId === inst.id}>
-                      Start
-                    </button>
-                  )}
-                  {(inst.status === 'running' || inst.status === 'starting') && (
-                    <button onClick={() => act(inst.id, 'stop')} className="secondary" disabled={busyId === inst.id}>
-                      Stop
-                    </button>
-                  )}
-                  <button onClick={() => act(inst.id, 'delete')} className="danger" disabled={busyId === inst.id}>
-                    Delete
-                  </button>
-                </div>
+                {manageId === inst.id && (
+                  <InstancePanel inst={inst} onClose={() => setManageId(null)} onChanged={() => setRefreshKey((k) => k + 1)} />
+                )}
               </div>
             ))}
           </div>

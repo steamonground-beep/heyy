@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
 const { query, tierLimits, getInstanceRuntime } = db;
 import { getCurrentUser } from '../../../../lib/auth';
+import { callWorker } from '../../../../lib/worker-client';
 
 export const runtime = 'nodejs';
 
@@ -38,6 +39,11 @@ export async function POST(req, { params }) {
   if (!action) return NextResponse.json({ error: 'action required' }, { status: 400 });
 
   if (action === 'delete') {
+    try {
+      await callWorker(db, instance.id, '/stop', { method: 'POST', body: '{}' });
+    } catch (e) {
+      // worker unreachable or instance not running — still delete.
+    }
     await query('DELETE FROM instances WHERE id = $1', [instance.id]);
     return NextResponse.json({ ok: true });
   }
@@ -89,6 +95,16 @@ export async function POST(req, { params }) {
     );
     if (!rows.length) return NextResponse.json({ error: 'instance not running' }, { status: 400 });
     return NextResponse.json({ instance: rows[0] });
+  }
+
+  if (action === 'restart') {
+    // Worker restarts the process in place; status cycles automatically.
+    try {
+      const data = await callWorker(db, instance.id, '/restart', { method: 'POST', body: '{}' });
+      return NextResponse.json({ ok: true, worker: data });
+    } catch (e) {
+      return NextResponse.json({ error: e.message }, { status: e.status || 502 });
+    }
   }
 
   return NextResponse.json({ error: 'unknown action' }, { status: 400 });
