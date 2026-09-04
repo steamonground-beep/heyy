@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import db from 'shared/db';
+import db from '../../../lib/db';
 const { query, upsertUserByDiscord, tierLimits } = db;
-import config from 'shared/config';
-import { constantTimeEqual } from 'shared/auth';
+import config from '../../../lib/config';
+import { constantTimeEqual } from '../../../lib/worker-auth';
 
 export const runtime = 'nodejs';
 

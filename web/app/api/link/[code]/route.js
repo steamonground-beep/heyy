@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import db from 'shared/db';
+import db from '../../../../lib/db';
 const { query } = db;
 import { sign, SESSION_COOKIE, MAX_AGE } from '../../../../lib/session';
-import config from 'shared/config';
+import config from '../../../../lib/config';
 
 export const runtime = 'nodejs';
 

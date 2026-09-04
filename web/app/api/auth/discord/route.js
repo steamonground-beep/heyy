@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import config from 'shared/config';
+import config from '../../../../lib/config';
 
 export const runtime = 'nodejs';
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from 'shared/db';
+import db from '../../../lib/db';
 const { query, tierLimits, getInstanceRuntime } = db;
 import { getCurrentUser } from '../../../lib/auth';
 

@@ -1,6 +1,6 @@
 // Simple signed session cookie (HMAC) so we don't need a JWT dependency.
 const crypto = require('crypto');
-const config = require('shared/config');
+const config = require('./config');
 
 function secret() {
   const s = process.env.SESSION_SECRET || config.controlApiSecret;

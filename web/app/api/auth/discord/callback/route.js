@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import config from 'shared/config';
-import db from 'shared/db';
+import config from '../../../../../lib/config';
+import db from '../../../../../lib/db';
 const { query, upsertUserByDiscord } = db;
 const { sign, SESSION_COOKIE, MAX_AGE } = require('../../../../../lib/session');
 
