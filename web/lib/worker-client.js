@@ -32,6 +32,7 @@ export async function callWorker(db, instanceId, path, init) {
     ...init,
     headers: {
       ...apiSecretHeader,
+      'ngrok-skip-browser-warning': '1',
       ...((init && init.headers) || {}),
     },
     cache: 'no-store',

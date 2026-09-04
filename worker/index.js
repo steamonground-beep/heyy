@@ -343,7 +343,7 @@ async function heartbeat() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         host: WORKER_HOST,
-        apiUrl: `http://${WORKER_PUBLIC_HOST}:${WORKER_API_PORT}`,
+        apiUrl: process.env.WORKER_DAEMON_URL || `http://${WORKER_PUBLIC_HOST}:${WORKER_API_PORT}`,
         instances,
       }),
     });
