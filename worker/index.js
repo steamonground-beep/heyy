@@ -463,7 +463,7 @@ function safeRel(root, rel) {
 
 function dirListing(root, rel) {
   const base = safeRel(root, rel);
-  const skip = new Set(['node_modules', 'logs', 'eventlogs', '.git', '.deepseek', '.env',
+  const skip = new Set(['node_modules', 'logs', 'eventlogs', '.git', '.deepseek',
     'admin-panel', 'New folder']);
   const skipFiles = new Set(['frida_out.txt', 'frida_runner.py', 'monke_graph.py', 'CosmeticsExport.txt']);
   const skipName = (name) =>
