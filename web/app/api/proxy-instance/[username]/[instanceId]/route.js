@@ -14,26 +14,13 @@ async function getInstanceInfo(instanceId) {
   return rows[0];
 }
 
-async function getWorkerDaemonUrl(instanceId) {
-  const { rows } = await pool.query(
-    'SELECT worker_host, port FROM instances WHERE id = $1',
-    [instanceId]
-  );
-  if (!rows.length) return null;
-  
-  const instance = rows[0];
-  // Try to get the daemon URL from the worker registration
-  const { rows: workerRows } = await pool.query(
-    'SELECT api_url FROM workers WHERE host = $1',
-    [instance.worker_host]
-  );
-  
-  if (workerRows.length && workerRows[0].api_url) {
-    return workerRows[0].api_url;
+async function getWorkerDaemonUrl() {
+  const { rows } = await pool.query("SELECT value FROM settings WHERE key = 'worker_api'");
+  if (rows.length) {
+    const parsed = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
+    if (parsed && parsed.url) return parsed.url;
   }
-  
-  // Fallback to direct IP:port if no daemon URL registered
-  return `http://${instance.worker_host || 'localhost'}:4770`;
+  return process.env.WORKER_API_URL || null;
 }
 
 export async function GET(request, { params }) {
@@ -48,7 +35,7 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'Instance not running' }, { status: 503 });
   }
   
-  const workerDaemonUrl = await getWorkerDaemonUrl(instanceId);
+  const workerDaemonUrl = await getWorkerDaemonUrl();
   if (!workerDaemonUrl) {
     return NextResponse.json({ error: 'Worker daemon not available' }, { status: 503 });
   }
