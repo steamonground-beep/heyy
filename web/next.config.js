@@ -12,11 +12,6 @@ const nextConfig = {
         source: '/play/:username/:instanceId',
         destination: '/api/proxy-instance/:username/:instanceId',
       },
-      // API endpoint routes for game client compatibility
-      {
-        source: '/api/:username/:instanceId/:path*',
-        destination: '/api/proxy-instance/:username/:instanceId/:path*',
-      },
       // WebSocket routes
       {
         source: '/ws/:username/:instanceId/:path*',
