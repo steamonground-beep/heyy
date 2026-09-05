@@ -440,7 +440,7 @@ function safeRel(root, rel) {
   return p;
 }
 
-function dirListing(root, rel, maxDepth) {
+function dirListing(root, rel) {
   const base = safeRel(root, rel);
   const skip = new Set(['node_modules', 'logs', '.git', 'eventlogs', '.env', '.deepseek',
     'admin-dist', 'admin-panel', 'New folder']);
@@ -450,29 +450,24 @@ function dirListing(root, rel, maxDepth) {
     skipFiles.has(name) ||
     /(^|\s)- Copy/.test(name) ||
     /\.bak$/i.test(name);
-  function walk(dir, depth) {
-    let out = [];
-    for (const name of fs.readdirSync(dir)) {
-      if (skipName(name)) continue;
-      const full = path.join(dir, name);
-      let st;
-      try {
-        st = fs.statSync(full);
-      } catch {
-        continue;
-      }
-      if (!st.isDirectory() && skipFiles.has(name)) continue;
-      const relPath = path.relative(root, full).replace(/\\/g, '/');
-      if (st.isDirectory()) {
-        out.push({ name, path: relPath, type: 'dir' });
-        if (depth < (maxDepth || 3)) out = out.concat(walk(full, depth + 1));
-      } else {
-        out.push({ name, path: relPath, type: 'file', size: st.size });
-      }
+  const out = [];
+  for (const name of fs.readdirSync(base)) {
+    if (skipName(name)) continue;
+    const full = path.join(base, name);
+    let st;
+    try {
+      st = fs.statSync(full);
+    } catch {
+      continue;
     }
-    return out;
+    const relPath = path.relative(root, full).replace(/\\/g, '/');
+    out.push(
+      st.isDirectory()
+        ? { name, path: relPath, type: 'dir' }
+        : { name, path: relPath, type: 'file', size: st.size }
+    );
   }
-  return walk(base, 0);
+  return out;
 }
 
 function readFileAt(root, rel) {
@@ -643,7 +638,7 @@ async function handleDaemonRequest(req, res, url, instanceId) {
 
   try {
     if (req.method === 'GET' && route === '/files') {
-      const entries = dirListing(root, url.searchParams.get('path') || '/', 3);
+      const entries = dirListing(root, url.searchParams.get('path') || '/');
       return json(200, { entries });
     }
 
