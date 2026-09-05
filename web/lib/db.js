@@ -76,6 +76,49 @@ async function getUserUsedSeconds(userId) {
   return rows.length ? Number(rows[0].s) : 0;
 }
 
+// Return the seconds the user has used within the current daily allowance
+// window. Rolls the window forward at midnight (DB timezone): any usage
+// recorded in a previous day stops counting toward the 7h free-tier cap.
+// Uses FOR UPDATE so concurrent checks (web + worker) can't double-roll.
+async function rollFreeUsage(userId) {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      'SELECT used_seconds, period_start, period_base FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return { today_seconds: 0, rolled: false };
+    }
+    const u = rows[0];
+    const days = Math.max(0, Math.floor((Date.now() - new Date(u.period_start).getTime()) / 86400000));
+    let rolled = false;
+    if (days > 0) {
+      await client.query(
+        'UPDATE users SET period_start = period_start + make_interval(days => $2), period_base = $3, updated_at = now() WHERE id = $1',
+        [userId, days, u.used_seconds]
+      );
+      rolled = true;
+    }
+    const { rows: after } = await client.query(
+      'SELECT used_seconds, period_base FROM users WHERE id = $1',
+      [userId]
+    );
+    await client.query('COMMIT');
+    const today_seconds = Math.max(0, Number(after[0].used_seconds) - Number(after[0].period_base));
+    return { today_seconds, rolled };
+  } catch (e) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {}
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   getPool,
   query,
@@ -84,5 +127,6 @@ module.exports = {
   upsertUserByDiscord,
   getInstanceRuntime,
   getUserUsedSeconds,
+  rollFreeUsage,
   config,
 };

@@ -207,16 +207,43 @@ function nextPort(base) {
   throw new Error('No free port');
 }
 
-// Cumulative runtime for the instance's owner across every instance they've
-// ever run. Deleted + re-created instances no longer reset the counter.
-async function userUsedSeconds(instanceId) {
-  const { rows } = await pool.query(
-    `SELECT COALESCE(u.used_seconds, 0)::bigint AS s
-     FROM instances i JOIN users u ON u.id = i.owner_id
-     WHERE i.id = $1`,
-    [instanceId]
-  );
-  return rows.length ? Number(rows[0].s) : 0;
+// Seconds the owner has used within the current daily allowance window.
+// Rolls the window forward at midnight (DB timezone) and uses FOR UPDATE so
+// concurrent checks can't double-roll.
+async function freeUsageToday(ownerId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      'SELECT used_seconds, period_start, period_base FROM users WHERE id = $1 FOR UPDATE',
+      [ownerId]
+    );
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return 0;
+    }
+    const u = rows[0];
+    const days = Math.max(0, Math.floor((Date.now() - new Date(u.period_start).getTime()) / 86400000));
+    if (days > 0) {
+      await client.query(
+        'UPDATE users SET period_start = period_start + make_interval(days => $2), period_base = $3, updated_at = now() WHERE id = $1',
+        [ownerId, days, u.used_seconds]
+      );
+    }
+    const { rows: after } = await client.query(
+      'SELECT used_seconds, period_base FROM users WHERE id = $1',
+      [ownerId]
+    );
+    await client.query('COMMIT');
+    return Math.max(0, Number(after[0].used_seconds) - Number(after[0].period_base));
+  } catch (e) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {}
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 function pushLog(id, text) {
@@ -361,7 +388,9 @@ async function enforceFreeLimits() {
   const maxSeconds = maxHours * 3600;
   for (const [id, entry] of running.entries()) {
     if (!entry.free) continue;
-    const total = await userUsedSeconds(id);
+    const ownerId = entry.meta && entry.meta.owner_id;
+    if (!ownerId) continue;
+    const total = await freeUsageToday(ownerId);
     if (total >= maxSeconds) {
       console.log(`[${id}] free tier cap (${maxHours}h) reached; stopping`);
       await stopInstance(id, 'stopped');

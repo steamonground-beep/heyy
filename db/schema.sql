@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS users (
     username         TEXT UNIQUE,                -- legacy field (password logins removed; kept for compat)
     passhash         TEXT,                       -- legacy field (password logins removed; kept for compat)
     banned           BOOLEAN NOT NULL DEFAULT false,
-    used_seconds     BIGINT NOT NULL DEFAULT 0,  -- cumulative runtime across all instances; survives deletion
+    used_seconds     BIGINT NOT NULL DEFAULT 0,  -- lifetime cumulative runtime (never resets)
+    period_start     TIMESTAMPTZ NOT NULL DEFAULT date_trunc('day', now()), -- start of the daily free allowance window
+    period_base      BIGINT NOT NULL DEFAULT 0,  -- used_seconds value at period_start; today's usage = used_seconds - period_base
     tier             TEXT NOT NULL DEFAULT 'free'
                     CHECK (tier IN ('free', 'paid')),
     paid_role        TEXT,                       -- snapshot of the Discord role name that grants paid

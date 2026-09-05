@@ -122,8 +122,8 @@ export default function Dashboard() {
         </p>
         {user.tier === 'free' && limits?.max_run_hours != null && (
           <p style={{ color: 'var(--muted)', marginTop: 4 }}>
-            Total used: <b>{fmtSeconds(Number(user.used_seconds) || 0)}</b>
-            {' '}/ {limits.max_run_hours}h max (lifetime, can't be reset).
+            Used today: <b>{fmtSeconds(Number(user.today_used_seconds) || 0)}</b>
+            {' '}/ {limits.max_run_hours}h max · resets at midnight (GMT).
           </p>
         )}
       </div>

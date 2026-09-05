@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
-const { query, tierLimits, getInstanceRuntime, getUserUsedSeconds } = db;
+const { query, tierLimits, getInstanceRuntime, rollFreeUsage } = db;
 import { getCurrentUser } from '../../../../lib/auth';
 import { callWorker } from '../../../../lib/worker-client';
 
@@ -71,13 +71,14 @@ export async function POST(req, { params }) {
 
   if (action === 'start') {
     const limits = await tierLimits(user.tier);
-    // Free tier: enforce max runtime (7 hours), cumulative across all instances.
+    // Free tier: enforce max runtime per day (7 hours), cumulative across all
+    // instances. The daily allowance resets at midnight (GMT).
     if (user.tier === 'free' && limits.max_run_hours != null) {
-      const usedSeconds = await getUserUsedSeconds(user.id);
+      const { today_seconds } = await rollFreeUsage(user.id);
       const maxSeconds = limits.max_run_hours * 3600;
-      if (usedSeconds >= maxSeconds) {
+      if (today_seconds >= maxSeconds) {
         return NextResponse.json(
-          { error: `free tier runtime used up (${limits.max_run_hours}h max)` },
+          { error: `free tier runtime used up for today (${limits.max_run_hours}h max, resets at midnight)` },
           { status: 400 }
         );
       }
