@@ -71,8 +71,14 @@ function instanceRoot(id) {
 // Skips node_modules (symlinked), logs, .git, and replaces .env with a blank-safe one.
 // Recursively copy template files/dirs into dst only when the target is missing.
 function cpMissing(srcDir, dstDir) {
-  const skip = new Set(['node_modules', 'logs', '.git', 'eventlogs', '.env', '.deepseek']);
+  const skip = new Set(['node_modules', 'logs', '.git', 'eventlogs', '.env', '.deepseek',
+    'admin-dist', 'admin-panel', 'New folder']);
   const skipFiles = new Set(['frida_out.txt', 'frida_runner.py', 'monke_graph.py', 'CosmeticsExport.txt']);
+  const skipName = (name) =>
+    skip.has(name) ||
+    skipFiles.has(name) ||
+    /(^|\s)- Copy/.test(name) ||
+    /\.bak$/i.test(name);
   let names;
   try {
     names = fs.readdirSync(srcDir);
@@ -80,7 +86,7 @@ function cpMissing(srcDir, dstDir) {
     return;
   }
   for (const name of names) {
-    if (skip.has(name) || skipFiles.has(name)) continue;
+    if (skipName(name)) continue;
     const s = path.join(srcDir, name);
     const d = path.join(dstDir, name);
     let st;
@@ -436,12 +442,18 @@ function safeRel(root, rel) {
 
 function dirListing(root, rel, maxDepth) {
   const base = safeRel(root, rel);
-  const skip = new Set(['node_modules', 'logs', '.git', 'eventlogs', '.env', '.deepseek']);
+  const skip = new Set(['node_modules', 'logs', '.git', 'eventlogs', '.env', '.deepseek',
+    'admin-dist', 'admin-panel', 'New folder']);
   const skipFiles = new Set(['frida_out.txt', 'frida_runner.py', 'monke_graph.py', 'CosmeticsExport.txt']);
+  const skipName = (name) =>
+    skip.has(name) ||
+    skipFiles.has(name) ||
+    /(^|\s)- Copy/.test(name) ||
+    /\.bak$/i.test(name);
   function walk(dir, depth) {
     let out = [];
     for (const name of fs.readdirSync(dir)) {
-      if (skip.has(name)) continue;
+      if (skipName(name)) continue;
       const full = path.join(dir, name);
       let st;
       try {
