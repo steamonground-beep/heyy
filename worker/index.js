@@ -135,13 +135,22 @@ function setupInstanceDir(id) {
     if (!linked) console.error(`[${id}] node_modules link FAILED — instance may not boot`);
   }
 
+  // Seed the instance .env from the template's full config the first time.
+  const templateEnv = path.join(BACKEND_DIR, '.env');
+  const envPath = path.join(root, '.env');
+  if (fs.existsSync(templateEnv) && !fs.existsSync(envPath)) {
+    fs.copyFileSync(templateEnv, envPath);
+    console.log(`[${id}] seeded .env from template`);
+  }
+
   writeInstanceEnv(id, {});
   console.log(`[${id}] instance folder provisioned at ${root}`);
   return root;
 }
 
-// Build + write an instance .env (merged over existing). PORT/HOST are always injected
-// by the spawner via process.env at boot, so .env only carries user-facing config.
+// Build + write an instance .env. Preserves the file's comments/blanks verbatim and
+// only adjusts k=v lines (or appends) for keys that are missing, so a seeded full
+// template .env stays byte-identical. PORT is injected by the spawner at boot.
 function writeInstanceEnv(id, overrides) {
   const envPath = path.join(instanceRoot(id), '.env');
   const base = {
@@ -151,25 +160,37 @@ function writeInstanceEnv(id, overrides) {
     MOTHERSHIP_DEPLOYMENT_ID: '837c4e80-a36c-49aa-bbde-18a5fa32bb3d',
     HOST: '0.0.0.0',
     DNS_REDIRECT_IP: '',
-    DISCORD_LOGIN: '',
-    DISCORD_ROOMS: '',
-    DISCORD_WEBHOOK: '',
   };
   const merged = {};
-  if (fs.existsSync(envPath)) {
-    for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
-      const t = line.trim();
-      if (!t || t.startsWith('#')) continue;
-      const i = t.indexOf('=');
-      if (i === -1) continue;
-      merged[t.slice(0, i).trim()] = t.slice(i + 1).trim();
-    }
+  const original = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8').split('\n') : [];
+  for (const line of original) {
+    const t = line.trim();
+    if (!t || t.startsWith('#')) continue;
+    const i = t.indexOf('=');
+    if (i === -1) continue;
+    merged[t.slice(0, i).trim()] = t.slice(i + 1).trim();
   }
-  Object.assign(merged, base, overrides || {});
-  const out = Object.entries(merged)
-    .map(([k, v]) => `${k}=${v}`)
-    .join('\n');
-  fs.writeFileSync(envPath, out + '\n', 'utf8');
+  for (const [k, v] of Object.entries(base)) {
+    if (merged[k] === undefined) merged[k] = v;
+  }
+  Object.assign(merged, overrides || {});
+  const out = [];
+  const written = new Set();
+  for (const line of original) {
+    if (/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/.test(line)) {
+      const k = line.trim().split('=')[0].trim();
+      if (merged[k] !== undefined) {
+        out.push(`${k}=${merged[k]}`);
+        written.add(k);
+        continue;
+      }
+    }
+    out.push(line);
+  }
+  for (const [k, v] of Object.entries(merged)) {
+    if (!written.has(k)) out.push(`${k}=${v}`);
+  }
+  fs.writeFileSync(envPath, out.join('\n'), 'utf8');
 }
 
 function nextPort(base) {
