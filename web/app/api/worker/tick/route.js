@@ -41,5 +41,11 @@ export async function POST(req) {
     'UPDATE instance_runtime SET run_seconds = run_seconds + $2, updated_at = now() WHERE instance_id = $1',
     [instanceId, seconds]
   );
+  // Credit cumulative per-user runtime too, so the free-tier cap follows the
+  // account even after an instance is deleted and re-created.
+  await query(
+    'UPDATE users SET used_seconds = used_seconds + $2, updated_at = now() WHERE id = (SELECT owner_id FROM instances WHERE id = $1)',
+    [instanceId, seconds]
+  );
   return NextResponse.json({ ok: true });
 }

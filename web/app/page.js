@@ -9,9 +9,6 @@ export default function Home() {
           <Link href="/api/auth/discord">
             <button>Login with Discord</button>
           </Link>
-          <Link href="/login">
-            <button className="secondary">Log in</button>
-          </Link>
           <Link href="/dashboard">
             <button className="secondary">Dashboard</button>
           </Link>

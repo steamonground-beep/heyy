@@ -2,8 +2,6 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { Pool } = require('pg');
 const crypto = require('crypto');
-const path = require('path');
-const { hashPassword } = require(path.join(__dirname, '..', 'web', 'lib', 'passwords'));
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -48,32 +46,6 @@ const commands = [
     )
     .addSubcommand((s) =>
       s
-        .setName('create-login')
-        .setDescription('Create an account with a username + password login.')
-        .addStringOption((o) =>
-          o.setName('username').setDescription('Login username').setRequired(true)
-        )
-        .addStringOption((o) =>
-          o.setName('discord').setDescription('Optional Discord ID to link the account to').setRequired(false)
-        )
-        .addStringOption((o) =>
-          o
-            .setName('tier')
-            .setDescription('Account tier')
-            .setRequired(false)
-            .addChoices({ name: 'free', value: 'free' }, { name: 'paid', value: 'paid' })
-        )
-    )
-    .addSubcommand((s) =>
-      s
-        .setName('reset-password')
-        .setDescription('Generate a new password for an account.')
-        .addStringOption((o) =>
-          o.setName('query').setDescription('Username or Discord ID').setRequired(true)
-        )
-    )
-    .addSubcommand((s) =>
-      s
         .setName('delete-user')
         .setDescription('Delete an account and everything on it (instances stopped first).')
         .addStringOption((o) =>
@@ -98,7 +70,7 @@ const commands = [
     .addSubcommand((s) =>
       s
         .setName('ban')
-        .setDescription('Ban an account (blocks password and Discord logins).')
+        .setDescription('Ban an account (blocks Discord logins).')
         .addStringOption((o) =>
           o.setName('query').setDescription('Username or Discord ID').setRequired(true)
         )
@@ -152,26 +124,6 @@ function isOwner(id) {
   return OWNER_IDS.has(id);
 }
 
-function makePassword() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-  const bytes = crypto.randomBytes(12);
-  let out = '';
-  for (const b of bytes) out += chars[b % chars.length];
-  return out;
-}
-
-async function uniqueUsername(base) {
-  let u = (base || 'user').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 24) || 'user';
-  const taken = await pool.query('SELECT 1 FROM users WHERE username = $1 LIMIT 1', [u]);
-  if (!taken.rows.length) return u;
-  for (let i = 0; i < 5; i++) {
-    const tryName = u.slice(0, 20) + '_' + Math.random().toString(36).slice(2, 6);
-    const r = await pool.query('SELECT 1 FROM users WHERE username = $1 LIMIT 1', [tryName]);
-    if (!r.rows.length) return tryName;
-  }
-  return u + '_' + Date.now().toString(36).slice(-4);
-}
-
 async function makeLinkCode(userId) {
   const code = crypto.randomBytes(16).toString('hex');
   await pool.query(
@@ -222,7 +174,7 @@ async function daemonStop(instanceId) {
 
 function userSummary(user) {
   return [
-    `**${user.username || '(no login yet)'}**${user.banned ? ' :no_entry: BANNED' : ''}`,
+    `**${user.discord_username || user.username || '(unnamed)'}**${user.banned ? ' :no_entry: BANNED' : ''}`,
     `Tier: ${user.tier} · created <t:${Math.floor(new Date(user.created_at).getTime() / 1000)}:R>`,
     `Discord: ${user.discord_username || 'none'} (${user.discord_id || '—'})`,
   ].join('\n');
@@ -248,47 +200,29 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.commandName === 'create-account') {
       const member = interaction.member;
       const tier = tierForMember(member);
-      const username = await uniqueUsername(member.user.username);
-      const password = makePassword();
-      const passhash = hashPassword(password);
       const { rows: created } = await pool.query(
-        `INSERT INTO users (discord_id, discord_username, username, passhash, tier, updated_at)
-         VALUES ($1, $2, $3, $4, $5, now())
+        `INSERT INTO users (discord_id, discord_username, tier)
+         VALUES ($1, $2, $3)
          ON CONFLICT (discord_id)
          DO UPDATE SET discord_username = EXCLUDED.discord_username,
-                       username = COALESCE(users.username, EXCLUDED.username),
-                       passhash = EXCLUDED.passhash,
                        tier = EXCLUDED.tier,
                        updated_at = now()
-         RETURNING *`,
-        [member.id, member.user.username, username, passhash, tier]
+         RETURNING id`,
+        [member.id, member.user.username, tier]
       );
       const user = created[0];
       const code = await makeLinkCode(user.id);
       const site = process.env.SITE_URL;
-      const loginUrl = site ? `${site}/login` : 'the dashboard';
       const embed = new EmbedBuilder()
         .setTitle('Account created')
         .setDescription(`You're all set, ${member.user.username}!`)
         .addFields(
           { name: 'Tier', value: tier === 'paid' ? 'Paid :star:' : 'Free', inline: true },
           { name: 'Discord ID', value: member.id, inline: true },
-          { name: 'Website login', value: `${loginUrl}` },
-          { name: 'Login username', value: `\`${username}\``, inline: true },
-          { name: 'Password', value: `\`${password}\``, inline: true },
-          { name: 'Link your Discord session', value: site ? `${site}/api/link/${code}` : 'Site not configured' }
+          { name: 'Link your website session', value: site ? `${site}/api/link/${code}` : 'Site not configured' }
         )
-        .setFooter({ text: 'Save your username + password — use /admin reset-password if you lose them (owner only).' });
+        .setFooter({ text: 'Use /account to see your current limits.' });
       await interaction.reply({ embeds: [embed], ephemeral: true });
-      try {
-        const target = await client.users.fetch(member.id);
-        await target.send({
-          content:
-            `Your **Snakes Hosting** login was created.\n\n` +
-            `**Login:** ${loginUrl}\n**User:** \`${username}\`\n**Password:** \`${password}\`\n\n` +
-            `Keep this somewhere safe — passwords can only be reset by an owner.`,
-        });
-      } catch {}
       return;
     }
 
@@ -345,81 +279,6 @@ client.on('interactionCreate', async (interaction) => {
           parts.push(`\`${i.id}\` **${i.name}** — ${i.status}${i.port ? ` on :${i.port}` : ''}`);
         }
         embed.setDescription(parts.join('\n').slice(0, 4000));
-        await interaction.reply({ embeds: [embed], ephemeral: true });
-        return;
-      }
-
-      if (sub === 'create-login') {
-        const username = (interaction.options.getString('username') || '').trim().toLowerCase();
-        const discord = interaction.options.getString('discord') || null;
-        const newTier = tier || 'free';
-        if (!/^[a-z0-9_]{3,24}$/.test(username)) {
-          await interaction.reply({
-            content: ':x: Username must be 3–24 characters of letters, numbers, or underscores.',
-            ephemeral: true,
-          });
-          return;
-        }
-        const existing = await resolveUser(username);
-        if (existing) {
-          await interaction.reply({
-            content: `:x: Username \`${username}\` is already taken. Use /admin reset-password to change its credentials.`,
-            ephemeral: true,
-          });
-          return;
-        }
-        if (discord) {
-          const linked = await pool.query('SELECT * FROM users WHERE discord_id = $1', [discord]);
-          if (linked.rows.length) {
-            await interaction.reply({
-              content: ':x: That Discord ID is already linked to another account.',
-              ephemeral: true,
-            });
-            return;
-          }
-        }
-        const password = makePassword();
-        const passhash = hashPassword(password);
-        const { rows: created } = await pool.query(
-          `INSERT INTO users (username, passhash, tier, discord_id, discord_username)
-           VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-          [username, passhash, newTier, discord, null]
-        );
-        const site = process.env.SITE_URL || 'the dashboard';
-        embed
-          .setTitle('Login created')
-          .setDescription(
-            `Account \`${username}\` created.\n\n**Login:** ${site}/login\n**User:** \`${username}\`\n**Password:** \`${password}\`\n**Tier:** ${newTier}`
-          );
-        await interaction.reply({ embeds: [embed], ephemeral: true });
-        if (discord) {
-          try {
-            const target = await client.users.fetch(discord);
-            await target.send({
-              content: `Your hosting login is ready.\n\n**Login:** ${site}/login\n**User:** \`${username}\`\n**Password:** \`${password}\``,
-            });
-          } catch {}
-        }
-        return;
-      }
-
-      if (sub === 'reset-password') {
-        const user = await resolveUser(query);
-        if (!user) {
-          await interaction.reply({ content: 'No account found for that username or Discord ID.', ephemeral: true });
-          return;
-        }
-        const password = makePassword();
-        await pool.query('UPDATE users SET passhash = $2, updated_at = now() WHERE id = $1', [
-          user.id,
-          hashPassword(password),
-        ]);
-        const site = process.env.SITE_URL || 'the dashboard';
-        embed
-          .setTitle('Password reset')
-          .setDescription(
-            `**Login:** ${site}/login\n**User:** \`${user.username}\`\n**New password:** \`${password}\``
-          );
         await interaction.reply({ embeds: [embed], ephemeral: true });
         return;
       }

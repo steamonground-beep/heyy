@@ -65,6 +65,17 @@ async function getInstanceRuntime(instanceId) {
   return rows.length ? Number(rows[0].run_seconds) : 0;
 }
 
+// Cumulative runtime for a user across every instance they've ever run.
+// This survives instance deletion so the free-tier cap can't be reset by
+// deleting + re-creating an instance.
+async function getUserUsedSeconds(userId) {
+  const { rows } = await query(
+    'SELECT COALESCE(used_seconds, 0)::bigint AS s FROM users WHERE id = $1',
+    [userId]
+  );
+  return rows.length ? Number(rows[0].s) : 0;
+}
+
 module.exports = {
   getPool,
   query,
@@ -72,5 +83,6 @@ module.exports = {
   tierLimits,
   upsertUserByDiscord,
   getInstanceRuntime,
+  getUserUsedSeconds,
   config,
 };

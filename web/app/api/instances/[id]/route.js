@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '../../../../lib/db';
-const { query, tierLimits, getInstanceRuntime } = db;
+const { query, tierLimits, getInstanceRuntime, getUserUsedSeconds } = db;
 import { getCurrentUser } from '../../../../lib/auth';
 import { callWorker } from '../../../../lib/worker-client';
 
@@ -39,6 +39,15 @@ export async function POST(req, { params }) {
   if (!action) return NextResponse.json({ error: 'action required' }, { status: 400 });
 
   if (action === 'delete') {
+    // Free tier instances are permanent: deleting to reset the runtime clock is
+    // not allowed. Only an owner can remove them via the bot.
+    const limits = await tierLimits(user.tier);
+    if (user.tier === 'free') {
+      return NextResponse.json(
+        { error: 'Free tier instances are permanent and cannot be deleted. Contact an owner.' },
+        { status: 403 }
+      );
+    }
     try {
       await callWorker(db, instance.id, '/stop', { method: 'POST', body: '{}' });
     } catch (e) {
@@ -62,11 +71,11 @@ export async function POST(req, { params }) {
 
   if (action === 'start') {
     const limits = await tierLimits(user.tier);
-    // Free tier: enforce max runtime (7 hours).
+    // Free tier: enforce max runtime (7 hours), cumulative across all instances.
     if (user.tier === 'free' && limits.max_run_hours != null) {
-      const runSeconds = await getInstanceRuntime(instance.id);
+      const usedSeconds = await getUserUsedSeconds(user.id);
       const maxSeconds = limits.max_run_hours * 3600;
-      if (runSeconds >= maxSeconds) {
+      if (usedSeconds >= maxSeconds) {
         return NextResponse.json(
           { error: `free tier runtime used up (${limits.max_run_hours}h max)` },
           { status: 400 }

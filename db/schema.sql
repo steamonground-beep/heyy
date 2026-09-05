@@ -9,11 +9,12 @@ CREATE TABLE IF NOT EXISTS users (
     discord_id       TEXT UNIQUE,                -- Discord user snowflake
     discord_username TEXT,
     email            TEXT UNIQUE,                -- optional, if captured later
-    username         TEXT UNIQUE,                -- real login username (bot issues it)
-    passhash         TEXT,                       -- scrypt hash "salt:hash" for password logins
+    username         TEXT UNIQUE,                -- legacy field (password logins removed; kept for compat)
+    passhash         TEXT,                       -- legacy field (password logins removed; kept for compat)
     banned           BOOLEAN NOT NULL DEFAULT false,
+    used_seconds     BIGINT NOT NULL DEFAULT 0,  -- cumulative runtime across all instances; survives deletion
     tier             TEXT NOT NULL DEFAULT 'free'
-                     CHECK (tier IN ('free', 'paid')),
+                    CHECK (tier IN ('free', 'paid')),
     paid_role        TEXT,                       -- snapshot of the Discord role name that grants paid
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()

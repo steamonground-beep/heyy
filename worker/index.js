@@ -207,9 +207,13 @@ function nextPort(base) {
   throw new Error('No free port');
 }
 
-async function dbRealTime(instanceId) {
+// Cumulative runtime for the instance's owner across every instance they've
+// ever run. Deleted + re-created instances no longer reset the counter.
+async function userUsedSeconds(instanceId) {
   const { rows } = await pool.query(
-    'SELECT COALESCE(run_seconds, 0) AS s FROM instance_runtime WHERE instance_id = $1',
+    `SELECT COALESCE(u.used_seconds, 0)::bigint AS s
+     FROM instances i JOIN users u ON u.id = i.owner_id
+     WHERE i.id = $1`,
     [instanceId]
   );
   return rows.length ? Number(rows[0].s) : 0;
@@ -357,7 +361,7 @@ async function enforceFreeLimits() {
   const maxSeconds = maxHours * 3600;
   for (const [id, entry] of running.entries()) {
     if (!entry.free) continue;
-    const total = await dbRealTime(id);
+    const total = await userUsedSeconds(id);
     if (total >= maxSeconds) {
       console.log(`[${id}] free tier cap (${maxHours}h) reached; stopping`);
       await stopInstance(id, 'stopped');

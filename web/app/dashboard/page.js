@@ -91,9 +91,6 @@ export default function Dashboard() {
           Log in to manage your hosting instances.
         </p>
         <div style={{ display: 'grid', gap: 8, justifyContent: 'center' }}>
-          <Link href="/login">
-            <button>Log in with username</button>
-          </Link>
           <Link href="/api/auth/discord">
             <button className="secondary">Login with Discord</button>
           </Link>
@@ -125,8 +122,8 @@ export default function Dashboard() {
         </p>
         {user.tier === 'free' && limits?.max_run_hours != null && (
           <p style={{ color: 'var(--muted)', marginTop: 4 }}>
-            Total used: <b>{fmtSeconds(instances.reduce((a, i) => a + (Number(i.run_seconds) || 0), 0))}</b>{' '}
-            / {limits.max_run_hours}h max.
+            Total used: <b>{fmtSeconds(Number(user.used_seconds) || 0)}</b>
+            {' '}/ {limits.max_run_hours}h max (lifetime, can't be reset).
           </p>
         )}
       </div>
@@ -209,9 +206,11 @@ export default function Dashboard() {
                         Restart
                       </button>
                     )}
-                    <button onClick={() => act(inst.id, 'delete')} className="danger" disabled={busyId === inst.id}>
-                      Delete
-                    </button>
+                    {user.tier !== 'free' && (
+                      <button onClick={() => act(inst.id, 'delete')} className="danger" disabled={busyId === inst.id}>
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </div>
                 {manageId === inst.id && (
