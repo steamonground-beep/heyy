@@ -318,102 +318,24 @@ function SettingsTab({ inst, onError, onChanged }) {
 // ----------------------------------------------------------------- Files ---
 
 function FilesTab({ inst, onError }) {
-  const [path, setPath] = useState('');
-  const [entries, setEntries] = useState([]);
-  const [busy, setBusy] = useState(false);
-
-  const loadDir = useCallback(
-    async (p) => {
-      setBusy(true);
-      onError('');
-      try {
-        const res = await fetch(`/api/instances/${inst.id}/files?path=${encodeURIComponent(p || '/')}`);
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'load failed');
-        const data = await res.json();
-        setPath(p || '/');
-        setEntries(data.entries || []);
-      } catch (e) {
-        onError(e.message);
-      } finally {
-        setBusy(false);
-      }
-    },
-    [inst.id, onError]
-  );
-
-  useEffect(() => {
-    loadDir('');
-  }, [loadDir]);
-
-  const dirs = entries.filter((e) => e.type === 'dir');
-  const files = entries.filter((e) => e.type === 'file');
-
   return (
-    <div style={{ marginTop: 12 }}>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
-        <span className="muted mono" style={{ fontSize: 13 }}>
-          {path || '/'}
-        </span>
-        {path && path !== '/' && (
-          <button
-            className="secondary"
-            onClick={() => loadDir(path.split('/').slice(0, -1).join('/'))}
-            style={{ padding: '4px 10px', fontSize: 12 }}
-          >
-            ← up
-          </button>
-        )}
-        <button className="secondary" onClick={() => loadDir(path)} style={{ padding: '4px 10px', fontSize: 12 }}>
-          Refresh
-        </button>
-      </div>
+    <div style={{ marginTop: 12, display: 'grid', gap: 12 }}>
+      <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>
+        Use the full-page editor for file browsing and saving.
+      </p>
 
-      {dirs.length > 0 && (
-        <>
-          <strong style={{ fontSize: 13 }}>Folders</strong>
-          <div style={{ display: 'grid', gap: 4, marginTop: 4, marginBottom: 12 }}>
-            {dirs.map((d) => (
-              <button
-                key={d.path}
-                className="secondary mono"
-                onClick={() => loadDir(d.path)}
-                style={{ textAlign: 'left', padding: '5px 10px', fontSize: 12 }}
-              >
-                📁 {d.path}/
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+      <Link
+        href={`/dashboard/instances/${inst.id}/files`}
+        className="secondary"
+        style={{ display: 'inline-flex', alignItems: 'center', width: 'fit-content', padding: '8px 14px' }}
+      >
+        Open full file manager
+      </Link>
 
-      {files.length > 0 && (
-        <>
-          <strong style={{ fontSize: 13 }}>Files</strong>
-          <div style={{ display: 'grid', gap: 4, marginTop: 4, marginBottom: 12 }}>
-            {files.map((f) => (
-              <div key={f.path} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button
-                  className="secondary mono"
-                  onClick={() => loadDir(path)}
-                  style={{ textAlign: 'left', padding: '5px 10px', fontSize: 12, flex: 1 }}
-                >
-                  📄 {f.path} <span style={{ color: 'var(--muted)' }}>({(f.size / 1024).toFixed(1)} KB)</span>
-                </button>
-                <Link
-                  href={`/dashboard/instances/${inst.id}/files?path=${encodeURIComponent(`/${f.path}`)}`}
-                  className="secondary"
-                  style={{ padding: '5px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center' }}
-                >
-                  Open editor
-                </Link>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {entries.length === 0 && !busy && (
-        <p style={{ color: 'var(--muted)', fontSize: 13 }}>This folder is empty.</p>
+      {inst.public_url && (
+        <p style={{ color: 'var(--muted)', fontSize: 12, margin: 0 }}>
+          Instance URL: <span className="mono">{inst.public_url}</span>
+        </p>
       )}
     </div>
   );

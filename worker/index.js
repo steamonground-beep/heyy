@@ -77,17 +77,7 @@ function setupInstanceDir(id) {
   fs.mkdirSync(root, { recursive: true });
   fs.mkdirSync(path.dirname(BACKEND_DIR), { recursive: true });
 
-  const skip = new Set([
-    'node_modules',
-    'logs',
-    '.git',
-    'admin-dist',
-    'admin-panel',
-    'eventlogs',
-    '.env',
-    '.deepseek',
-    'New folder',
-  ]);
+  const skip = new Set(['logs', '.git', 'eventlogs', '.env', '.deepseek']);
   const skipFiles = ['frida_out.txt', 'frida_runner.py', 'monke_graph.py', 'CosmeticsExport.txt'];
   fs.cpSync(BACKEND_DIR, root, {
     recursive: true,
@@ -96,7 +86,9 @@ function setupInstanceDir(id) {
       const rel = path.relative(BACKEND_DIR, src);
       if (!rel) return true;
       const parts = rel.split(path.sep);
-      return !skip.has(parts[0]) && !(parts.length === 1 && skipFiles.includes(parts[0]));
+      if (parts.some((part) => part === 'node_modules')) return false;
+      if (parts.some((part) => skip.has(part))) return false;
+      return !(parts.length === 1 && skipFiles.includes(parts[0]));
     },
   });
 
@@ -427,7 +419,7 @@ function safeRel(root, rel) {
 
 function dirListing(root, rel, maxDepth) {
   const base = safeRel(root, rel);
-  const skip = new Set(['node_modules', 'logs', '.git', 'admin-dist', 'admin-panel', 'eventlogs', '.next', '.deepseek', 'New folder']);
+  const skip = new Set(['node_modules', 'logs', '.git', 'eventlogs', '.env', '.deepseek']);
   const skipFiles = new Set(['frida_out.txt', 'frida_runner.py', 'monke_graph.py', 'CosmeticsExport.txt']);
   function walk(dir, depth) {
     let out = [];
