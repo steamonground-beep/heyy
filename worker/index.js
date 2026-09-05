@@ -463,17 +463,8 @@ function safeRel(root, rel) {
 
 function dirListing(root, rel) {
   const base = safeRel(root, rel);
-  const skip = new Set(['node_modules', 'logs', 'eventlogs', '.git', '.deepseek',
-    'admin-panel', 'New folder']);
-  const skipFiles = new Set(['frida_out.txt', 'frida_runner.py', 'monke_graph.py', 'CosmeticsExport.txt']);
-  const skipName = (name) =>
-    skip.has(name) ||
-    skipFiles.has(name) ||
-    /(^|\s)- Copy/.test(name) ||
-    /\.bak$/i.test(name);
   const out = [];
   for (const name of fs.readdirSync(base)) {
-    if (skipName(name)) continue;
     const full = path.join(base, name);
     let st;
     try {
