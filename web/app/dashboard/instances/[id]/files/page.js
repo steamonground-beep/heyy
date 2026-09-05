@@ -9,6 +9,14 @@ function joinPath(base, child) {
   return `${base.replace(/\/+$/, '')}/${String(child || '').replace(/^\/+/, '')}`;
 }
 
+function parentPath(p) {
+  const norm = String(p || '/').replace(/\/+/g, '/');
+  if (!norm || norm === '/') return '/';
+  const parts = norm.replace(/^\/+|\/+$/g, '').split('/');
+  parts.pop();
+  return parts.length ? `/${parts.join('/')}` : '/';
+}
+
 async function readJson(res) {
   const text = await res.text();
   const data = text ? JSON.parse(text) : {};
@@ -141,7 +149,7 @@ export default function InstanceFilesPage({ params }) {
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
             <span className="mono" style={{ fontSize: 13, color: 'var(--muted)' }}>{cwd}</span>
             {cwd !== '/' && (
-              <button className="secondary" onClick={() => setCwd(joinPath(cwd, '..').replace(/\/\.\.?$/, '').replace(/\/+/g, '/'))} style={{ padding: '4px 10px', fontSize: 12 }}>
+              <button className="secondary" onClick={() => setCwd(parentPath(cwd))} style={{ padding: '4px 10px', fontSize: 12 }}>
                 ← up
               </button>
             )}
