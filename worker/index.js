@@ -69,28 +69,45 @@ function instanceRoot(id) {
 
 // Copy the template backend into this instance's own folder (isolated per user).
 // Skips node_modules (symlinked), logs, .git, and replaces .env with a blank-safe one.
+// Recursively copy template files/dirs into dst only when the target is missing.
+function cpMissing(srcDir, dstDir) {
+  const skip = new Set(['node_modules', 'logs', '.git', 'eventlogs', '.env', '.deepseek']);
+  const skipFiles = new Set(['frida_out.txt', 'frida_runner.py', 'monke_graph.py', 'CosmeticsExport.txt']);
+  let names;
+  try {
+    names = fs.readdirSync(srcDir);
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    if (skip.has(name) || skipFiles.has(name)) continue;
+    const s = path.join(srcDir, name);
+    const d = path.join(dstDir, name);
+    let st;
+    try {
+      st = fs.statSync(s);
+    } catch {
+      continue;
+    }
+    if (st.isDirectory()) {
+      if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+      cpMissing(s, d);
+    } else if (!fs.existsSync(d)) {
+      fs.mkdirSync(path.dirname(d), { recursive: true });
+      fs.copyFileSync(s, d);
+    }
+  }
+}
+
 function setupInstanceDir(id) {
   const root = instanceRoot(id);
-  const serverPath = path.join(root, 'server.js');
-  if (fs.existsSync(serverPath)) return root;
-
   fs.mkdirSync(root, { recursive: true });
   fs.mkdirSync(path.dirname(BACKEND_DIR), { recursive: true });
+  if (!fs.existsSync(BACKEND_DIR)) throw new Error(`backend template missing: ${BACKEND_DIR}`);
 
-  const skip = new Set(['logs', '.git', 'eventlogs', '.env', '.deepseek']);
-  const skipFiles = ['frida_out.txt', 'frida_runner.py', 'monke_graph.py', 'CosmeticsExport.txt'];
-  fs.cpSync(BACKEND_DIR, root, {
-    recursive: true,
-    dereference: false,
-    filter: (src) => {
-      const rel = path.relative(BACKEND_DIR, src);
-      if (!rel) return true;
-      const parts = rel.split(path.sep);
-      if (parts.some((part) => part === 'node_modules')) return false;
-      if (parts.some((part) => skip.has(part))) return false;
-      return !(parts.length === 1 && skipFiles.includes(parts[0]));
-    },
-  });
+  // Top-up copy: bring in any template files/folders the instance lacks, without
+  // clobbering existing files (so older thin copies get the full tree too).
+  cpMissing(BACKEND_DIR, root);
 
   // Symlink the template node_modules so each instance doesn't copy hundreds of MB.
   // On Windows prefer a junction (no admin rights needed).
@@ -480,7 +497,13 @@ function targetPathFromPublicRoute(urlPathname, username, instanceId) {
   ];
   for (const prefix of prefixes) {
     if (urlPathname === prefix) return '/';
-    if (urlPathname.startsWith(prefix + '/')) return urlPathname.slice(prefix.length);
+    if (urlPathname.startsWith(prefix + '/')) {
+      let rest = urlPathname.slice(prefix.length);
+      // Client WS URLs use /ws/<something>; the backend serves <something> directly
+      // (e.g. /ws/prod-GT-ws-stage/ -> /prod-GT-ws-stage/).
+      if (rest.startsWith('/ws/')) rest = rest.slice(3) || '/';
+      return rest;
+    }
   }
   return null;
 }

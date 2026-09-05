@@ -9,6 +9,13 @@ function joinPath(base, child) {
   return `${base.replace(/\/+$/, '')}/${String(child || '').replace(/^\/+/, '')}`;
 }
 
+async function readJson(res) {
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!res.ok) throw new Error(data.error || `request failed (${res.status})`);
+  return data;
+}
+
 export default function InstanceFilesPage({ params }) {
   const id = params.id;
   const searchParams = useSearchParams();
@@ -24,8 +31,7 @@ export default function InstanceFilesPage({ params }) {
     (async () => {
       try {
         const res = await fetch(`/api/instances/${id}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load instance');
+        const data = await readJson(res);
         setInstance(data.instance);
       } catch (e) {
         setError(e.message);
@@ -51,8 +57,7 @@ export default function InstanceFilesPage({ params }) {
       setError('');
       try {
         const res = await fetch(`/api/instances/${id}/files?path=${encodeURIComponent(cwd)}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to load folder');
+        const data = await readJson(res);
         setEntries(data.entries || []);
         const openPath = searchParams.get('path');
         if (openPath) {
@@ -77,8 +82,7 @@ export default function InstanceFilesPage({ params }) {
     setError('');
     try {
       const res = await fetch(`/api/instances/${id}/files?path=${encodeURIComponent(p)}&view=1`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to open file');
+      const data = await readJson(res);
       setFile({ path: p, content: data.content ?? '' });
     } catch (e) {
       setError(e.message);
@@ -97,7 +101,7 @@ export default function InstanceFilesPage({ params }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: file.path, content: file.content }),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = await res.text().then((t) => (t ? JSON.parse(t) : {})).catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Failed to save file');
     } catch (e) {
       setError(e.message);
