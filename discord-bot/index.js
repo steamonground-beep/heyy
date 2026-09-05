@@ -160,18 +160,16 @@ function makePassword() {
   return out;
 }
 
-async function upsertUser(discordId, username, tier) {
-  const { rows } = await pool.query(
-    `INSERT INTO users (discord_id, discord_username, tier)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (discord_id)
-     DO UPDATE SET discord_username = EXCLUDED.discord_username,
-                   tier = EXCLUDED.tier,
-                   updated_at = now()
-     RETURNING id, discord_id, discord_username, tier, created_at`,
-    [discordId, username, tier]
-  );
-  return rows[0];
+async function uniqueUsername(base) {
+  let u = (base || 'user').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 24) || 'user';
+  const taken = await pool.query('SELECT 1 FROM users WHERE username = $1 LIMIT 1', [u]);
+  if (!taken.rows.length) return u;
+  for (let i = 0; i < 5; i++) {
+    const tryName = u.slice(0, 20) + '_' + Math.random().toString(36).slice(2, 6);
+    const r = await pool.query('SELECT 1 FROM users WHERE username = $1 LIMIT 1', [tryName]);
+    if (!r.rows.length) return tryName;
+  }
+  return u + '_' + Date.now().toString(36).slice(-4);
 }
 
 async function makeLinkCode(userId) {
@@ -250,19 +248,47 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.commandName === 'create-account') {
       const member = interaction.member;
       const tier = tierForMember(member);
-      const user = await upsertUser(member.id, member.user.username, tier);
+      const username = await uniqueUsername(member.user.username);
+      const password = makePassword();
+      const passhash = hashPassword(password);
+      const { rows: created } = await pool.query(
+        `INSERT INTO users (discord_id, discord_username, username, passhash, tier, updated_at)
+         VALUES ($1, $2, $3, $4, $5, now())
+         ON CONFLICT (discord_id)
+         DO UPDATE SET discord_username = EXCLUDED.discord_username,
+                       username = COALESCE(users.username, EXCLUDED.username),
+                       passhash = EXCLUDED.passhash,
+                       tier = EXCLUDED.tier,
+                       updated_at = now()
+         RETURNING *`,
+        [member.id, member.user.username, username, passhash, tier]
+      );
+      const user = created[0];
       const code = await makeLinkCode(user.id);
       const site = process.env.SITE_URL;
+      const loginUrl = site ? `${site}/login` : 'the dashboard';
       const embed = new EmbedBuilder()
         .setTitle('Account created')
         .setDescription(`You're all set, ${member.user.username}!`)
         .addFields(
           { name: 'Tier', value: tier === 'paid' ? 'Paid :star:' : 'Free', inline: true },
           { name: 'Discord ID', value: member.id, inline: true },
-          { name: 'Link your website session', value: site ? `${site}/api/link/${code}` : 'Site not configured' }
+          { name: 'Website login', value: `${loginUrl}` },
+          { name: 'Login username', value: `\`${username}\``, inline: true },
+          { name: 'Password', value: `\`${password}\``, inline: true },
+          { name: 'Link your Discord session', value: site ? `${site}/api/link/${code}` : 'Site not configured' }
         )
-        .setFooter({ text: 'Use /account to see your current limits.' });
+        .setFooter({ text: 'Save your username + password — use /admin reset-password if you lose them (owner only).' });
       await interaction.reply({ embeds: [embed], ephemeral: true });
+      try {
+        const target = await client.users.fetch(member.id);
+        await target.send({
+          content:
+            `Your **Snakes Hosting** login was created.\n\n` +
+            `**Login:** ${loginUrl}\n**User:** \`${username}\`\n**Password:** \`${password}\`\n\n` +
+            `Keep this somewhere safe — passwords can only be reset by an owner.`,
+        });
+      } catch {}
       return;
     }
 
