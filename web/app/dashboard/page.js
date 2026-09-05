@@ -88,11 +88,16 @@ export default function Dashboard() {
       <main style={{ maxWidth: 720, margin: '0 auto', padding: 48, textAlign: 'center' }}>
         <h1>You’re not logged in</h1>
         <p style={{ color: 'var(--muted)', margin: '16px 0' }}>
-          Log in with Discord to manage your hosting instances.
+          Log in to manage your hosting instances.
         </p>
-        <Link href="/api/auth/discord">
-          <button className="btn-discord">Login with Discord</button>
-        </Link>
+        <div style={{ display: 'grid', gap: 8, justifyContent: 'center' }}>
+          <Link href="/login">
+            <button>Log in with username</button>
+          </Link>
+          <Link href="/api/auth/discord">
+            <button className="secondary">Login with Discord</button>
+          </Link>
+        </div>
       </main>
     );
   }

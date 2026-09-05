@@ -92,6 +92,9 @@ export async function GET(req) {
 
     const tier = await determineTier(accessToken, me.id);
     const user = await upsertUserByDiscord(me.id, me.username, tier);
+    if (user.banned) {
+      return NextResponse.redirect(`${config.siteUrl}/?error=banned`);
+    }
 
     const token = sign({ userId: user.id, discordId: me.id, tier: user.tier });
     const res = NextResponse.redirect(`${config.siteUrl}/dashboard`);

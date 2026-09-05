@@ -252,6 +252,9 @@ async function startProcess(work) {
     return;
   }
   const port = nextPort(START_PORT);
+  // Each instance also gets its own HTTPS/WSS (SSL) port, offset far above the
+  // main port range so instances never collide on a shared SSL port.
+  const sslPort = port + 10000;
   // Get the owner info for the instance to build the path-based URL
   const { rows: ownerRows } = await pool.query(
     'SELECT u.discord_username FROM instances i JOIN users u ON i.owner_id = u.id WHERE i.id = $1',
@@ -266,6 +269,7 @@ async function startProcess(work) {
     ...process.env,
     PORT: String(port),
     HOST: '0.0.0.0',
+    SSL_PORT: String(sslPort),
     PUBLIC_URL: publicUrl,
   };
   const child = spawn('node', ['server.js'], {
@@ -287,7 +291,7 @@ async function startProcess(work) {
 
   child.stdout.on('data', (d) => pushLog(work.id, d.toString()));
   child.stderr.on('data', (d) => pushLog(work.id, d.toString()));
-  pushLog(work.id, `[worker] starting instance ${work.id} on port ${port}`);
+  pushLog(work.id, `[worker] starting instance ${work.id} on port ${port} (ssl ${sslPort})`);
 
   const reportStarted = async () => {
     await pool.query(

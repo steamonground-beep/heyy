@@ -37,6 +37,7 @@ async function getCurrentUser(req, db) {
   if (!session || !session.userId) return null;
   const { rows } = await db.query('SELECT * FROM users WHERE id = $1', [session.userId]);
   const user = rows.length ? rows[0] : null;
+  if (!user || user.banned) return null;
   // Add username property for compatibility with instance URL generation
   if (user) {
     user.username = user.discord_username || 'unknown';

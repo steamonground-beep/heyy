@@ -9,12 +9,17 @@ CREATE TABLE IF NOT EXISTS users (
     discord_id       TEXT UNIQUE,                -- Discord user snowflake
     discord_username TEXT,
     email            TEXT UNIQUE,                -- optional, if captured later
+    username         TEXT UNIQUE,                -- real login username (bot issues it)
+    passhash         TEXT,                       -- scrypt hash "salt:hash" for password logins
+    banned           BOOLEAN NOT NULL DEFAULT false,
     tier             TEXT NOT NULL DEFAULT 'free'
                      CHECK (tier IN ('free', 'paid')),
     paid_role        TEXT,                       -- snapshot of the Discord role name that grants paid
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS users_username_key ON users (username) WHERE username IS NOT NULL;
 
 -- A single "hosting instance" = one spawned game backend process for a user.
 -- Free tier: 1 instance max, max 7 hours of run time.
