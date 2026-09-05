@@ -71,8 +71,8 @@ function instanceRoot(id) {
 // Skips node_modules (symlinked), logs, .git, and replaces .env with a blank-safe one.
 // Recursively copy template files/dirs into dst only when the target is missing.
 function cpMissing(srcDir, dstDir) {
-  const skip = new Set(['node_modules', 'logs', '.git', 'eventlogs', '.env', '.deepseek',
-    'admin-dist', 'admin-panel', 'New folder']);
+  const skip = new Set(['node_modules', 'logs', 'eventlogs', '.git', '.deepseek', '.env',
+    'admin-panel', 'New folder']);
   const skipFiles = new Set(['frida_out.txt', 'frida_runner.py', 'monke_graph.py', 'CosmeticsExport.txt']);
   const skipName = (name) =>
     skip.has(name) ||
@@ -463,8 +463,8 @@ function safeRel(root, rel) {
 
 function dirListing(root, rel) {
   const base = safeRel(root, rel);
-  const skip = new Set(['node_modules', 'logs', '.git', 'eventlogs', '.env', '.deepseek',
-    'admin-dist', 'admin-panel', 'New folder']);
+  const skip = new Set(['node_modules', 'logs', 'eventlogs', '.git', '.deepseek', '.env',
+    'admin-panel', 'New folder']);
   const skipFiles = new Set(['frida_out.txt', 'frida_runner.py', 'monke_graph.py', 'CosmeticsExport.txt']);
   const skipName = (name) =>
     skip.has(name) ||
